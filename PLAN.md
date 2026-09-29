@@ -3,7 +3,7 @@
 One milestone per Claude Code session. Commit after each. Check boxes as you go. If the plan changes, edit this file, do not write a new master prompt.
 
 ## Week 1: core engine + share card
-- [ ] M1 Scaffold: TypeScript CLI, `launchscore <url>` prints "ok". Vitest running. CI on push.
+- [x] M1 Scaffold: TypeScript CLI, `launchscore <url>` prints "ok". Vitest running. CI on push.
 - [ ] M2 Fixture sites: `fixtures/good` (must produce zero findings) and `fixtures/bad` (one planted issue per check). Local server for tests.
 - [ ] M3 Check registry + runner: check interface, page context (HTML, headers, loaded JS bundles via Playwright), JSON report writer.
 - [ ] M4 First 5 checks: SEC-001, SEC-003, SEC-004, SEO-001, HYG-003. Tests against both fixtures.
