@@ -61,6 +61,7 @@ interface Finding {
 - User-facing text is plain English for non-coders. No "RLS", "CSP" without a one-line explanation.
 - For the Claude Code plugin manifest and folder layout, follow the current official Claude Code plugin docs. Do not guess the schema.
 - Keep dependencies minimal. Ask before adding one not listed above.
+- Never rewrite git history, amend pushed commits, or force-push without asking first.
 
 ## Commands
 - `pnpm dev <url>` run locally
