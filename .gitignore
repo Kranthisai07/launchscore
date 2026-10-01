@@ -5,3 +5,5 @@ dist/
 launchscore-report.json
 launchscore-card*.png
 launchscore-report.html
+validation/
+*.local.txt

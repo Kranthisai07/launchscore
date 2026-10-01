@@ -18,6 +18,8 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "fixture": "tsx fixtures/serve.ts",
+    "validate": "tsx scripts/validate.ts",
+    "validate:tally": "tsx scripts/tally.ts",
     "build": "tsup",
     "test": "vitest run",
     "test:unit": "vitest run --exclude \"**/*.browser.test.ts\"",

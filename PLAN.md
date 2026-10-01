@@ -16,7 +16,7 @@ Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a 
 - [x] M7 A11Y-001 (axe-core) and PERF-001 (Lighthouse 13, so Node 22.19+).
 - [x] M8 HYG-001, HYG-002, HYG-004, HYG-005, HYG-006.
 - [x] M9 HTML report in plain English: what's wrong, why it matters, how to fix, grouped by severity. One self-contained `launchscore-report.html` (no JavaScript, no external requests), plus `--open`.
-- [ ] M10 Run against 10 real public sites you own or have permission for. Log every false positive and fix it.
+- [ ] M10 Run against 10 real public sites you own or have permission for. Log every false positive and fix it. Harness is built: put the URLs in `sites.local.txt` (gitignored), run `pnpm validate sites.local.txt` (output in the gitignored `validation/`), mark each row of `validation/review.md` TP / FP / unsure, then `pnpm validate:tally`. This box stays unchecked until the review is done and the false positives are fixed.
 
 ## Week 3: active checks + fix plugin
 - [ ] M11 `launchscore verify <domain>`: token issue, well-known file and DNS TXT verification.

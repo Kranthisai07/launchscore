@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "tests", "fixtures"]
+  "include": ["src", "tests", "fixtures", "scripts"]
 }
