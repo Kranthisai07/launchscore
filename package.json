@@ -16,6 +16,7 @@
   ],
   "scripts": {
     "dev": "tsx src/cli.ts",
+    "fixture": "tsx fixtures/serve.ts",
     "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
