@@ -1,4 +1,4 @@
-import { buildContext, type ContextOptions, type PageContext } from "./context.js";
+import { buildContext, skipSummary, type ContextOptions, type PageContext } from "./context.js";
 import { checks as registry } from "./checks/index.js";
 import { isVerified } from "./verify.js";
 import { computeScore, type ScoreResult } from "./score.js";
@@ -100,7 +100,7 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
     notTested.push({
       checkId: "CONTEXT",
       title: "JavaScript files not scanned",
-      reason: `scripts not scanned: ${ctx.skippedScripts.length} file(s)`,
+      reason: `scripts not scanned: ${skipSummary(ctx.skippedScripts)}`,
     });
   }
 

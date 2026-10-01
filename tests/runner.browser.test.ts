@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startFixtureServer, type FixtureServer } from "../fixtures/server.js";
 import type { PageContext } from "../src/context.js";
 import { MAX_CONCURRENT_CHECKS, runScan } from "../src/runner.js";
+import { MANY, scriptRoutes } from "./helpers/script-pages.js";
 import { checks as registry } from "../src/checks/index.js";
 import type { Check, Finding } from "../src/types.js";
 
@@ -45,6 +46,7 @@ beforeAll(async () => {
   [good, bad] = await Promise.all([
     startFixtureServer("good", {
       extraRoutes: {
+        ...scriptRoutes(),
         // Test-only: same server, different hostname, so the final host differs from the requested one.
         "/redirect-external": (_req, res, origin) => {
           res.writeHead(302, { Location: origin.replace("127.0.0.1", "localhost") + "/" }).end();
@@ -211,12 +213,40 @@ describe("active-check gating", () => {
   });
 });
 
+describe("script redirects and limits in a scan", () => {
+  const scripted = (extra: Record<string, unknown> = {}) => ({ checks: fiveCategories(), ...extra });
+
+  it("a script that redirects (302) is scanned at its target, and the scan is complete", async () => {
+    const result = await runScan(good.url + "/redirect-page", scripted());
+    expect(result.notTested).toEqual([]); // no "scripts not scanned" entry
+    expect(result.score).toMatchObject({ verdict: "READY TO LAUNCH", partial: false });
+  });
+
+  it(`${MANY} small scripts are all scanned, so the scan is complete`, async () => {
+    const result = await runScan(good.url + "/many", scripted());
+    expect(result.notTested).toEqual([]);
+    expect(result.score.partial).toBe(false);
+  });
+
+  it("reaching a limit is reported, with a count for each reason, and makes the scan partial", async () => {
+    const result = await runScan(good.url + "/many", scripted({ context: { maxScripts: 100 } }));
+    expect(result.notTested).toEqual([{ checkId: "CONTEXT", title: "JavaScript files not scanned", reason: "scripts not scanned: 50 over the file limit" }]);
+    expect(result.score).toMatchObject({ verdict: "ALMOST READY", partial: true });
+  });
+
+  it("reaching the total size limit is reported the same way", async () => {
+    const result = await runScan(good.url + "/sized", scripted({ context: { maxTotalScriptBytes: 3000 } }));
+    expect(result.notTested.map((n) => n.reason)).toEqual(["scripts not scanned: 3 over the size limit"]);
+    expect(result.score.partial).toBe(true);
+  });
+});
+
 describe("skipped scripts", () => {
   it("adds a 'scripts not scanned' entry so a skipped bundle never reads as clean", async () => {
     const result = await runScan(good.url + "/", { context: { maxScriptBytes: 10 }, skipPerformance: true });
     expect(result.notTested).toEqual([
       { checkId: "PERF-001", title: "Performance", reason: "skipped (--no-perf)" },
-      { checkId: "CONTEXT", title: "JavaScript files not scanned", reason: "scripts not scanned: 1 file(s)" },
+      { checkId: "CONTEXT", title: "JavaScript files not scanned", reason: "scripts not scanned: 1 too large" },
     ]);
   });
 });

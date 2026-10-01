@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { MAX_SCRIPT_BYTES, MAX_SCRIPTS, MAX_TOTAL_SCRIPT_BYTES, SKIP_REASON } from "../context.js";
 import type { NotTested } from "../types.js";
 import { CATEGORY_LABEL, escapeHtml as esc, PALETTE, tagsFor, toCardData, VERDICT_ACCENT } from "./card.js";
 import { ARCHIVO_BLACK_400, JETBRAINS_MONO_500, JETBRAINS_MONO_700 } from "./fonts.js";
@@ -22,6 +23,31 @@ const SEVERITY_LABEL: Record<Finding["severity"], string> = { critical: "Critica
 // Speed tips are informational: they never change the score, so they get their own section.
 const isSpeedTip = (f: Finding): boolean => f.checkId.startsWith("PERF-");
 
+const megabytes = (bytes: number): number => Math.round(bytes / (1024 * 1024));
+
+// "59 over the file limit, 1 unreadable" becomes one plain sentence for each reason.
+function scriptSkipSentences(summary: string): string {
+  const sentences = summary.split(", ").map((part) => {
+    const match = /^(\d+) (.+)$/.exec(part);
+    if (!match) return `Some script files were skipped (${part}).`;
+    const n = Number(match[1]);
+    const files = n === 1 ? "1 script file" : `${n} script files`;
+    switch (match[2]) {
+      case SKIP_REASON.fileLimit:
+        return `${files} came after the first ${MAX_SCRIPTS} we read, so we did not look inside ${n === 1 ? "it" : "them"}.`;
+      case SKIP_REASON.sizeLimit:
+        return `${files} would have taken us past ${megabytes(MAX_TOTAL_SCRIPT_BYTES)} MB of code in total, so we did not read ${n === 1 ? "it" : "them"}.`;
+      case SKIP_REASON.tooLarge:
+        return `${files} ${n === 1 ? "was" : "were"} bigger than ${megabytes(MAX_SCRIPT_BYTES)} MB, so we did not read ${n === 1 ? "it" : "them"}.`;
+      case SKIP_REASON.unreadable:
+        return `${files} could not be read (the site's server did not hand over ${n === 1 ? "its" : "their"} contents), so we could not look inside ${n === 1 ? "it" : "them"}.`;
+      default:
+        return `${files} ${n === 1 ? "was" : "were"} skipped (${match[2]}).`;
+    }
+  });
+  return `${sentences.join(" ")} Secret keys could be hiding in files we did not read.`;
+}
+
 // Turns the short technical reason a check recorded into a sentence anyone can follow. The raw reason is
 // always shown too, in small type, so nothing is hidden.
 export function plainReason(reason: string): string {
@@ -34,9 +60,7 @@ export function plainReason(reason: string): string {
   }
   if (reason.startsWith("check failed:")) return "This test hit a problem and could not finish.";
   if (reason === "skipped (--no-perf)") return "You chose to skip the speed test.";
-  if (/^scripts not scanned:/.test(reason)) {
-    return "Some of your JavaScript files were too big or could not be read, so we could not look inside them for secret keys.";
-  }
+  if (/^scripts not scanned:/.test(reason)) return scriptSkipSentences(reason.replace(/^scripts not scanned:\s*/, ""));
   if (/source maps? not checked/.test(reason)) {
     return `Your site points to more source map files (files that let anyone read your original code) than we check, so ${count} were skipped.`;
   }

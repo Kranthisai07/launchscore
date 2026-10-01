@@ -71,6 +71,14 @@ Launch hygiene
 - `notTested`: checks that were not run (unverified domain), crashed, or could not scan every script.
 - `score` (0 to 100, or null when nothing was tested), `verdict`, `categories` (five entries of `{ name, score | null, tested }`), `partial`, and `verified` (active checks ran).
 
+## JavaScript scanning limits
+SEC-001 and SEC-005 search the JavaScript the page loads. Scripts are read until the first of these limits:
+- 5 MB per file (a bigger file is skipped, never cut short),
+- 25 MB of script in total (once the budget is spent, the remaining files are not read),
+- 500 files.
+
+A script address that redirects (a 3xx response) is not read and not counted as skipped: the file it points to arrives as its own response and is scanned. Anything skipped makes the scan partial (verdict capped at "ALMOST READY") and is listed under "not tested" with a count per reason, for example "scripts not scanned: 59 over the file limit, 1 unreadable". The report's web page gives each reason its own plain sentence.
+
 ## Share card
 Two PNGs next to the report: `launchscore-card.png` (1200x630) and `launchscore-card-square.png` (1080x1350). They show the score, verdict, hostname only (never a path or query), per-category bars, and the titles of the top three findings. They never show evidence or secrets.
 

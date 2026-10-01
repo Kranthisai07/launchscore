@@ -1,19 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startFixtureServer, type FixtureServer } from "../fixtures/server.js";
-import { buildContext, type PageContext } from "../src/context.js";
+import { buildContext, MAX_SCRIPTS, MAX_SCRIPT_BYTES, MAX_TOTAL_SCRIPT_BYTES, SKIP_REASON, type PageContext } from "../src/context.js";
+import { MANY, scriptRoutes, SIZED } from "./helpers/script-pages.js";
 
 let good: FixtureServer;
 let bad: FixtureServer;
+let custom: FixtureServer;
 let goodCtx: PageContext;
 let badCtx: PageContext;
 
 beforeAll(async () => {
-  [good, bad] = await Promise.all([startFixtureServer("good"), startFixtureServer("bad")]);
+  [good, bad, custom] = await Promise.all([startFixtureServer("good"), startFixtureServer("bad"), startFixtureServer("good", { extraRoutes: scriptRoutes() })]);
   [goodCtx, badCtx] = await Promise.all([buildContext(good.url + "/"), buildContext(bad.url + "/")]);
 });
 
 afterAll(async () => {
-  await Promise.all([good.close(), bad.close()]);
+  await Promise.all([good.close(), bad.close(), custom.close()]);
 });
 
 describe("buildContext on the good fixture", () => {
@@ -76,17 +78,64 @@ describe("buildContext on the bad fixture", () => {
   });
 });
 
-describe("script caps", () => {
-  it("records scripts over the byte cap as skipped, not truncated", async () => {
-    const ctx = await buildContext(good.url + "/", { maxScriptBytes: 10 });
-    expect(ctx.scripts).toEqual([]);
-    expect(ctx.skippedScripts).toEqual([{ url: good.url + "/app.js", reason: "too large" }]);
+describe("script limits", () => {
+  it("are 5 MB per file, 25 MB in total, 500 files", () => {
+    expect([MAX_SCRIPT_BYTES, MAX_TOTAL_SCRIPT_BYTES, MAX_SCRIPTS]).toEqual([5 * 1024 * 1024, 25 * 1024 * 1024, 500]);
   });
 
-  it("records scripts over the count cap as skipped", async () => {
+  it("records a script over the per-file limit as skipped, not truncated", async () => {
+    const ctx = await buildContext(good.url + "/", { maxScriptBytes: 10 });
+    expect(ctx.scripts).toEqual([]);
+    expect(ctx.skippedScripts).toEqual([{ url: good.url + "/app.js", reason: SKIP_REASON.tooLarge }]);
+  });
+
+  it("records scripts over the file limit as skipped", async () => {
     const ctx = await buildContext(good.url + "/", { maxScripts: 0 });
     expect(ctx.scripts).toEqual([]);
-    expect(ctx.skippedScripts).toEqual([{ url: good.url + "/app.js", reason: "over script limit" }]);
+    expect(ctx.skippedScripts).toEqual([{ url: good.url + "/app.js", reason: "over the file limit" }]);
+  });
+
+  it(`reads all ${MANY} small scripts: the old limit of 100 files no longer applies`, async () => {
+    const ctx = await buildContext(custom.url + "/many");
+    expect(ctx.scripts).toHaveLength(MANY);
+    expect(ctx.skippedScripts).toEqual([]);
+    expect(ctx.scripts.some((s) => s.url.endsWith("/many/149.js") && s.body.includes("__many149"))).toBe(true);
+  });
+
+  it("stops at a lower file limit and says how many it left", async () => {
+    const ctx = await buildContext(custom.url + "/many", { maxScripts: 100 });
+    expect(ctx.scripts).toHaveLength(100);
+    expect(ctx.skippedScripts).toHaveLength(MANY - 100);
+    expect(new Set(ctx.skippedScripts.map((s) => s.reason))).toEqual(new Set(["over the file limit"]));
+  });
+
+  it("stops when the total size limit is reached, and reports it", async () => {
+    // five scripts of about 1.1 KB each: a 3 KB budget fits two, then the budget is spent
+    const ctx = await buildContext(custom.url + "/sized", { maxTotalScriptBytes: 3000 });
+    expect(ctx.scripts).toHaveLength(2);
+    expect(ctx.skippedScripts).toHaveLength(SIZED - 2);
+    expect(new Set(ctx.skippedScripts.map((s) => s.reason))).toEqual(new Set(["over the size limit"]));
+  });
+
+  it("does not report a size limit when everything fits", async () => {
+    const ctx = await buildContext(custom.url + "/sized", { maxTotalScriptBytes: 100_000 });
+    expect(ctx.scripts).toHaveLength(SIZED);
+    expect(ctx.skippedScripts).toEqual([]);
+  });
+
+  it("applies the per-file limit before the total, so a huge file does not use up the budget", async () => {
+    const ctx = await buildContext(custom.url + "/sized", { maxScriptBytes: 500, maxTotalScriptBytes: 100_000 });
+    expect(ctx.scripts).toEqual([]);
+    expect(new Set(ctx.skippedScripts.map((s) => s.reason))).toEqual(new Set(["too large"]));
+  });
+});
+
+describe("a script address that redirects", () => {
+  it("is neither read nor counted as skipped: the file it points to is the one scanned", async () => {
+    const ctx = await buildContext(custom.url + "/redirect-page");
+    expect(ctx.skippedScripts).toEqual([]);
+    expect(ctx.scripts.map((s) => new URL(s.url).pathname)).toEqual(["/target.js"]);
+    expect(ctx.scripts[0].body).toContain("__target");
   });
 });
 
