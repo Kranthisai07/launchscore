@@ -57,3 +57,33 @@ export function visibleText(html: string): string {
     .replace(/<[^>]*>/g, " ");
   return collapse(decodeEntities(stripped));
 }
+
+export interface MetaTag {
+  name?: string;
+  property?: string;
+  content: string;
+}
+
+// Every <meta> in the document (name, property and content already trimmed and entity-decoded).
+export function metaTags(html: string): MetaTag[] {
+  return (html.match(/<meta\b[^>]*>/gi) ?? []).map((tag) => ({
+    name: attr(tag, "name")?.trim().toLowerCase(),
+    property: attr(tag, "property")?.trim().toLowerCase(),
+    content: collapse(decodeEntities(attr(tag, "content") ?? "")),
+  }));
+}
+
+// href of every <link>, keyed by its lowercase rel tokens.
+export function linkRels(html: string): { rels: string[]; href: string }[] {
+  return (html.match(/<link\b[^>]*>/gi) ?? []).map((tag) => ({
+    rels: (attr(tag, "rel") ?? "").toLowerCase().split(/\s+/).filter(Boolean),
+    href: (attr(tag, "href") ?? "").trim(),
+  }));
+}
+
+// The markup a browser actually renders as content: no comments, scripts, styles, noscript or templates.
+export function withoutHidden(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
+}

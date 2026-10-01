@@ -25,7 +25,7 @@ Non-engineers ship apps built with Lovable, Bolt, v0, Replit and Claude Code. Th
 ## v1 checks
 Security
 - SEC-001 Secret keys in JS bundles (passive). Detect Stripe `sk_live_`/`rk_live_`, OpenAI, Anthropic, AWS access keys, GitHub tokens, Supabase `service_role` JWTs. Decode Supabase JWTs and flag only when the `role` claim is `service_role`. Never flag publishable keys (`pk_`, Supabase anon).
-- SEC-002 Public source maps (passive).
+- SEC-002 Public source maps (passive). Only map URLs the page itself references (a sourceMappingURL comment or a SourceMap header on a script) are fetched, never guessed. One finding per site, when a map ships the original source (sourcesContent).
 - SEC-003 Missing security headers: CSP, HSTS, frame protection, X-Content-Type-Options, Referrer-Policy (passive).
 - SEC-004 HTTPS and HTTP to HTTPS redirect (passive).
 - SEC-005 Supabase detected (passive). Not a finding and never scored. Produces an entry in the report's `detected` array (`stack: "supabase"`, project URL, and a note that an RLS test is available after verification).

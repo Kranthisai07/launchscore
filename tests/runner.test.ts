@@ -59,20 +59,28 @@ afterAll(async () => {
 });
 
 describe("runScan with the real registry", () => {
-  it("runs the five M4 checks: good is clean, bad has 12 findings and a score", async () => {
-    expect(registry.map((c) => c.id)).toEqual(["SEC-001", "SEC-003", "SEC-004", "SEO-001", "HYG-003"]);
+  it("runs the eleven checks: good is clean, bad has 20 findings and a score", async () => {
+    expect(registry.map((c) => c.id)).toEqual([
+      "SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "HYG-003",
+    ]);
 
     const onGood = await runScan(good.url + "/");
-    expect(onGood).toMatchObject({ findings: [], detected: [], notTested: [], checksRun: 5, verified: false });
+    expect(onGood).toMatchObject({ findings: [], notTested: [], checksRun: 11, verified: false });
+    expect(onGood.detected.map((d) => [d.stack, d.url])).toEqual([["supabase", "fakeproject.supabase.co"]]);
     expect(onGood.score).toMatchObject({ score: 100, verdict: "ALMOST READY", partial: true }); // accessibility and performance untested
 
     const onBad = await runScan(bad.url + "/");
-    expect(onBad).toMatchObject({ detected: [], notTested: [], checksRun: 5 });
+    expect(onBad).toMatchObject({ notTested: [], checksRun: 11 });
+    expect(onBad.detected.map((d) => d.stack)).toEqual(["supabase"]);
     const counts: Record<string, number> = {};
     for (const f of onBad.findings) counts[f.checkId] = (counts[f.checkId] ?? 0) + 1;
-    expect(counts).toEqual({ "SEC-001": 2, "SEC-003": 4, "SEO-001": 2, "HYG-003": 4 });
-    expect(onBad.score).toMatchObject({ score: 20, verdict: "BLOCKED: CRITICAL ISSUE", partial: true });
-    expect(onBad.score.categories.map((c) => c.score)).toEqual([0, 55, null, null, 40]);
+    expect(counts).toEqual({
+      "SEC-001": 2, "SEC-002": 1, "SEC-003": 4, "SEO-001": 2, "SEO-002": 2, "SEO-003": 2, "SEO-004": 1, "SEO-005": 2, "HYG-003": 4,
+    });
+    expect(onBad.findings).toHaveLength(20);
+    // security 0, seo 0 (115 points of deductions), hygiene 40: (0*40 + 0*15 + 40*15) / 70 = 8.6
+    expect(onBad.score).toMatchObject({ score: 9, verdict: "BLOCKED: CRITICAL ISSUE", partial: true });
+    expect(onBad.score.categories.map((c) => c.score)).toEqual([0, 0, null, null, 40]);
   });
 });
 

@@ -1,4 +1,5 @@
 import { chromium, type Response } from "playwright";
+import { createFetcher, type PageFetch } from "./fetcher.js";
 
 export interface PageContext {
   url: string; // as requested
@@ -7,10 +8,13 @@ export interface PageContext {
   headers: Record<string, string>; // main document response, keys lowercased
   rawHtml: string; // main document body exactly as served
   html: string; // rendered DOM after load
-  scripts: { url: string; body: string }[];
+  scripts: { url: string; body: string; headers?: Record<string, string> }[]; // headers lowercased
   skippedScripts: { url: string; reason: string }[]; // dropped by caps or unreadable
   consoleErrors: string[];
   links: string[]; // same-origin <a href>, absolute, hash stripped, deduped
+  // The only way checks request anything themselves: 5 at a time, 10 s timeout, same-host redirects,
+  // and only to hosts this page already uses. Returns null when blocked or failed.
+  fetch: PageFetch;
 }
 
 export interface ContextOptions {
@@ -70,7 +74,7 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
         if (Buffer.byteLength(body) > maxScriptBytes) {
           skippedScripts.push({ url: scriptUrl, reason: "too large" });
         } else {
-          scripts.push({ url: scriptUrl, body });
+          scripts.push({ url: scriptUrl, body, headers: Object.fromEntries(Object.entries(res.headers()).map(([k, v]) => [k.toLowerCase(), v])) });
         }
       } catch {
         skippedScripts.push({ url: scriptUrl, reason: "unreadable" });
@@ -95,6 +99,8 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
       ),
     ];
 
+    const allowedHosts = new Set([new URL(finalUrl).hostname, ...scriptResponses.map((r) => new URL(r.url()).hostname)]);
+
     return {
       url,
       finalUrl,
@@ -106,6 +112,7 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
       skippedScripts,
       consoleErrors,
       links,
+      fetch: createFetcher({ allowedHosts }),
     };
   } finally {
     await browser.close();

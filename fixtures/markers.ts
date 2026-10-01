@@ -52,8 +52,8 @@ export const MARKERS: Record<string, Marker> = {
   "SEO-004": async (get) => /<meta[^>]+name="robots"[^>]+noindex/i.test((await get("/")).body),
   "SEO-005": async (get) => {
     const { body } = await get("/");
-    const h1Count = (body.match(/<h1[\s>]/gi) ?? []).length;
-    return h1Count !== 1 || !/<link[^>]+rel="canonical"/i.test(body);
+    const noH1 = !/<h1[\s>]/i.test(body); // several h1s are allowed, only none is planted
+    return noH1 || !/<link[^>]+rel="canonical"/i.test(body);
   },
   "A11Y-001": async (get) => {
     const { body } = await get("/");

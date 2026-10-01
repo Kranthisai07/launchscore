@@ -213,7 +213,7 @@ describe("renderCards", () => {
   });
 
   it("the bad fixture's card HTML contains no evidence strings and no secret", () => {
-    expect(badReport.findings.length).toBe(12);
+    expect(badReport.findings.length).toBe(20);
     for (const size of ["landscape", "square"] as const) {
       const html = cardHtml(toCardData(badReport), size);
       for (const f of badReport.findings) expect(html, f.evidence).not.toContain(f.evidence);
@@ -231,6 +231,6 @@ describe("renderCards", () => {
     const html = cardHtml(toCardData(badReport), "landscape");
     expect(html).toContain("--accent:#FF2A2A");
     expect(html).toContain("BLOCKED: CRITICAL ISSUE");
-    expect(html).toContain(">20<");
+    expect(html).toContain(">9<");
   });
 });

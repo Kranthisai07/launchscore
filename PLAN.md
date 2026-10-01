@@ -9,10 +9,10 @@ One milestone per Claude Code session. Commit after each. Check boxes as you go.
 - [x] M4 First 5 checks: SEC-001, SEC-003, SEC-004, SEO-001, HYG-003. Tests against both fixtures. SEC-004 is tested with unit tests (no TLS on localhost).
 - [x] M5 Scoring + share card PNG (HTML template screenshotted by Playwright).
 
-Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a red card (score 20, BLOCKED: CRITICAL ISSUE) and JSON with 12 findings (SEC-001 x2, SEC-003 x4, SEO-001 x2, HYG-003 x4; SEC-004 cannot trigger on localhost); good fixture outputs zero findings (score 100, ALMOST READY while accessibility and performance are untested).
+Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a red card (score 9, BLOCKED: CRITICAL ISSUE), JSON with 20 findings (SEC-001 x2, SEC-002 x1, SEC-003 x4, SEO-001 x2, SEO-002 x2, SEO-003 x2, SEO-004 x1, SEO-005 x2, HYG-003 x4; SEC-004 cannot trigger on localhost) and 1 detection (Supabase); good fixture outputs zero findings and the same Supabase detection (score 100, ALMOST READY while accessibility and performance are untested, card tag DATABASE NOT TESTED).
 
 ## Week 2: remaining passive checks + HTML report
-- [ ] M6 SEC-002, SEC-005, SEO-002 to SEO-005.
+- [x] M6 SEC-002, SEC-005, SEO-002 to SEO-005.
 - [ ] M7 A11Y-001 (axe-core) and PERF-001 (Lighthouse).
 - [ ] M8 HYG-001, HYG-002, HYG-004, HYG-005, HYG-006.
 - [ ] M9 HTML report in plain English: what's wrong, why it matters, how to fix, grouped by severity.

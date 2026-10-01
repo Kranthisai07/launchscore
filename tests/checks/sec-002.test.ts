@@ -1,0 +1,139 @@
+import { describe, expect, it } from "vitest";
+import { sec002 } from "../../src/checks/sec-002.js";
+import { fetched, makeContext, routedFetch } from "../helpers/context.js";
+
+const map = (sourcesContent: unknown = ["const secret = 1;"]) =>
+  JSON.stringify({ version: 3, sources: ["a.js"], sourcesContent, mappings: "AAAA" });
+const script = (url: string, tail: string, headers?: Record<string, string>) => ({
+  url,
+  body: `console.log(1);\n${tail}\n`,
+  headers,
+});
+const comment = (ref: string) => `//# sourceMappingURL=${ref}`;
+
+describe("SEC-002 finds public source maps", () => {
+  it("fetches a map referenced by a comment and reports it once, without the query string", async () => {
+    const fetch = routedFetch({ "https://shop.test/assets/app.js.map?v=3": fetched(200, map()) });
+    const findings = await sec002.run(
+      makeContext({ scripts: [script("https://shop.test/assets/app.js", comment("app.js.map?v=3"))], fetch }),
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      checkId: "SEC-002",
+      severity: "medium",
+      evidence: "https://shop.test/assets/app.js.map",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("finds maps named in a SourceMap or X-SourceMap response header", async () => {
+    const fetch = routedFetch({
+      "https://shop.test/a.js.map": fetched(200, map()),
+      "https://shop.test/b.js.map": fetched(200, map()),
+    });
+    const scripts = [
+      script("https://shop.test/a.js", "", { sourcemap: "/a.js.map" }),
+      script("https://shop.test/b.js", "", { "x-sourcemap": "b.js.map" }),
+    ];
+    const findings = await sec002.run(makeContext({ scripts, fetch }));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].evidence).toBe("https://shop.test/a.js.map and 1 more");
+  });
+
+  it("resolves references against the script URL", async () => {
+    const fetch = routedFetch({ "https://cdn.shop.test/maps/x.map": fetched(200, map()) });
+    const scripts = [script("https://cdn.shop.test/js/x.js", comment("../maps/x.map"))];
+    expect(await sec002.run(makeContext({ scripts, fetch }))).toHaveLength(1);
+  });
+
+  it("uses the last sourceMappingURL comment in a file", async () => {
+    const fetch = routedFetch({ "https://shop.test/last.map": fetched(200, map()) });
+    const scripts = [script("https://shop.test/a.js", `${comment("first.map")}\n${comment("last.map")}`)];
+    expect(await sec002.run(makeContext({ scripts, fetch }))).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("flags an inline (data:) map that carries the source, with no request", async () => {
+    const data = `data:application/json;base64,${Buffer.from(map()).toString("base64")}`;
+    const fetch = routedFetch({});
+    const findings = await sec002.run(
+      makeContext({ scripts: [script("https://shop.test/a.js?t=1", comment(data))], fetch }),
+    );
+    expect(findings).toHaveLength(1);
+    expect(findings[0].evidence).toBe("inline source map in https://shop.test/a.js");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("recognises a map whose body was cut at the size cap", async () => {
+    const cut = '{"version":3,"sources":["a.js"],"sourcesContent":["const x = 1;';
+    const fetch = routedFetch({ "https://shop.test/a.js.map": fetched(200, cut, {}, true) });
+    const scripts = [script("https://shop.test/a.js", comment("a.js.map"))];
+    expect(await sec002.run(makeContext({ scripts, fetch }))).toHaveLength(1);
+  });
+});
+
+describe("SEC-002 stays quiet", () => {
+  const run = (response: ReturnType<typeof fetched> | null) =>
+    sec002.run(
+      makeContext({
+        scripts: [script("https://shop.test/a.js", comment("a.js.map"))],
+        fetch: routedFetch({ "https://shop.test/a.js.map": response }),
+      }),
+    );
+
+  it.each([
+    ["a 404", fetched(404, "Not found")],
+    ["a 403", fetched(403, "")],
+    ["an HTML page returned with 200 (soft 404)", fetched(200, "<!doctype html><html></html>")],
+    ["a map without sourcesContent", fetched(200, JSON.stringify({ version: 3, sources: ["a.js"], mappings: "AAAA" }))],
+    ["a map whose sourcesContent is empty", fetched(200, map([]))],
+    ["a map whose sourcesContent entries are blank or null", fetched(200, map([null, "  "]))],
+    ["a failed or blocked request", null],
+  ])("%s", async (_name, response) => {
+    expect(await run(response)).toEqual([]);
+  });
+
+  it("never guesses a map URL when nothing references one", async () => {
+    const fetch = routedFetch({ "https://shop.test/a.js.map": fetched(200, map()) });
+    const findings = await sec002.run(
+      makeContext({ scripts: [script("https://shop.test/a.js", "console.log(2)")], fetch }),
+    );
+    expect(findings).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("ignores the phrase when it is inside code rather than a comment line", async () => {
+    const body = `var re = "//# sourceMappingURL=" + name; // sourceMappingURL=x.map is mentioned in docs`;
+    const fetch = routedFetch({});
+    const scripts = [{ url: "https://shop.test/lib.js", body }];
+    expect(await sec002.run(makeContext({ scripts, fetch }))).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("skips non-http references", async () => {
+    const fetch = routedFetch({});
+    const scripts = [script("https://shop.test/a.js", comment("file:///etc/passwd"))];
+    expect(await sec002.run(makeContext({ scripts, fetch }))).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("SEC-002 limits", () => {
+  it("fetches at most 20 maps and requests each URL once", async () => {
+    const scripts = Array.from({ length: 30 }, (_, i) =>
+      script(`https://shop.test/${i}.js`, comment(`${i}.js.map`)),
+    );
+    scripts.push(script("https://shop.test/dup.js", comment("0.js.map")));
+    const fetch = routedFetch({});
+    await sec002.run(makeContext({ scripts, fetch }));
+    expect(fetch).toHaveBeenCalledTimes(20);
+    expect(new Set(fetch.mock.calls.map((c) => c[0])).size).toBe(20);
+  });
+
+  it("asks for a larger body than the default for maps", async () => {
+    const fetch = routedFetch({});
+    const scripts = [script("https://shop.test/a.js", comment("a.js.map"))];
+    await sec002.run(makeContext({ scripts, fetch }));
+    expect(fetch.mock.calls[0][1]).toMatchObject({ maxBytes: 10 * 1024 * 1024 });
+  });
+});

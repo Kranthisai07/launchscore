@@ -2,12 +2,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startFixtureServer, type FixtureServer } from "../../fixtures/server.js";
 import { checks } from "../../src/checks/index.js";
 import { buildContext, type PageContext } from "../../src/context.js";
-import type { Finding } from "../../src/types.js";
+import type { Detection, Finding } from "../../src/types.js";
 
 let good: FixtureServer;
 let bad: FixtureServer;
 let goodCtx: PageContext;
 let badCtx: PageContext;
+
+const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "HYG-003"];
 
 beforeAll(async () => {
   [good, bad] = await Promise.all([startFixtureServer("good"), startFixtureServer("bad")]);
@@ -18,21 +20,24 @@ afterAll(async () => {
   await Promise.all([good.close(), bad.close()]);
 });
 
-const findingsFor = async (id: string, ctx: PageContext): Promise<Finding[]> => {
+const checkById = (id: string) => {
   const check = checks.find((c) => c.id === id);
   if (!check) throw new Error(`${id} is not registered`);
-  return check.run(ctx);
+  return check;
 };
+const findingsFor = (id: string, ctx: PageContext): Promise<Finding[]> => checkById(id).run(ctx);
+const detectionsFor = async (id: string, ctx: PageContext): Promise<Detection[]> => (await checkById(id).detect?.(ctx)) ?? [];
+const severities = (findings: Finding[]) => findings.map((f) => f.severity);
 
 describe("registry", () => {
-  it("has the five M4 checks, in order", () => {
-    expect(checks.map((c) => c.id)).toEqual(["SEC-001", "SEC-003", "SEC-004", "SEO-001", "HYG-003"]);
+  it("has the eleven checks, in ID order", () => {
+    expect(checks.map((c) => c.id)).toEqual(IDS);
     expect(checks.every((c) => c.mode === "passive")).toBe(true);
   });
 });
 
 describe("good fixture stays clean", () => {
-  it.each(["SEC-001", "SEC-003", "SEC-004", "SEO-001", "HYG-003"])("%s finds nothing", async (id) => {
+  it.each(IDS)("%s finds nothing", async (id) => {
     expect(await findingsFor(id, goodCtx)).toEqual([]);
   });
 
@@ -42,20 +47,38 @@ describe("good fixture stays clean", () => {
     expect(body).toContain("sb_publishable_");
     expect(body).toContain("supabase.co");
   });
+
+  it("detects Supabase without reporting a problem", async () => {
+    expect(await detectionsFor("SEC-005", goodCtx)).toEqual([
+      expect.objectContaining({ checkId: "SEC-005", stack: "supabase", url: "fakeproject.supabase.co" }),
+    ]);
+  });
+
+  it("serves a real robots.txt and sitemap.xml, and fetches only through ctx.fetch", async () => {
+    const robots = await goodCtx.fetch(good.url + "/robots.txt");
+    expect(robots).toMatchObject({ status: 200 });
+    expect(robots!.body).toContain("Sitemap:");
+  });
 });
 
 describe("bad fixture triggers exactly the planted findings", () => {
   it("SEC-001: Stripe live key and Supabase service_role JWT, both critical", async () => {
     const findings = await findingsFor("SEC-001", badCtx);
-    expect(findings.map((f) => f.severity)).toEqual(["critical", "critical"]);
+    expect(severities(findings)).toEqual(["critical", "critical"]);
     expect(findings[0].title).toContain("Stripe");
     expect(findings[1].title).toContain("Supabase admin key");
     expect(findings.every((f) => f.evidence.includes(`${bad.url}/app.js`))).toBe(true);
   });
 
+  it("SEC-002: the referenced source map is public (one medium finding, no query string)", async () => {
+    const findings = await findingsFor("SEC-002", badCtx);
+    expect(severities(findings)).toEqual(["medium"]);
+    expect(findings[0].evidence).toBe(`${bad.url}/app.js.map`);
+  });
+
   it("SEC-003: CSP medium plus three low (HSTS is skipped on http)", async () => {
     const findings = await findingsFor("SEC-003", badCtx);
-    expect(findings.map((f) => f.severity)).toEqual(["medium", "low", "low", "low"]);
+    expect(severities(findings)).toEqual(["medium", "low", "low", "low"]);
     expect(findings.some((f) => f.title.includes("Strict-Transport-Security"))).toBe(false);
   });
 
@@ -63,9 +86,39 @@ describe("bad fixture triggers exactly the planted findings", () => {
     expect(await findingsFor("SEC-004", badCtx)).toEqual([]);
   });
 
+  it("SEC-005: Supabase is detected but never a finding", async () => {
+    expect(await findingsFor("SEC-005", badCtx)).toEqual([]);
+    expect((await detectionsFor("SEC-005", badCtx)).map((d) => d.url)).toEqual(["fakeproject.supabase.co"]);
+  });
+
   it("SEO-001: missing title (high) and missing description (medium)", async () => {
-    const findings = await findingsFor("SEO-001", badCtx);
-    expect(findings.map((f) => f.severity)).toEqual(["high", "medium"]);
+    expect(severities(await findingsFor("SEO-001", badCtx))).toEqual(["high", "medium"]);
+  });
+
+  it("SEO-002: missing Open Graph tags (medium) and twitter:card (low)", async () => {
+    const findings = await findingsFor("SEO-002", badCtx);
+    expect(severities(findings)).toEqual(["medium", "low"]);
+    expect(findings[0].evidence).toBe("Missing: og:title, og:description, og:image");
+  });
+
+  it("SEO-003: no robots.txt and no sitemap.xml, two lows", async () => {
+    const findings = await findingsFor("SEO-003", badCtx);
+    expect(severities(findings)).toEqual(["low", "low"]);
+    expect(findings[0].title).toContain("robots.txt");
+    expect(findings[1].title).toContain("sitemap.xml");
+  });
+
+  it("SEO-004: noindex, one high finding", async () => {
+    const findings = await findingsFor("SEO-004", badCtx);
+    expect(severities(findings)).toEqual(["high"]);
+    expect(findings[0].evidence).toContain("robots meta tag in your page");
+  });
+
+  it("SEO-005: no h1 and no canonical, two lows", async () => {
+    const findings = await findingsFor("SEO-005", badCtx);
+    expect(severities(findings)).toEqual(["low", "low"]);
+    expect(findings[0].title).toContain("h1");
+    expect(findings[1].title).toContain("canonical");
   });
 
   it("HYG-003: lorem ipsum, Your Company, John Doe, example.com email", async () => {
