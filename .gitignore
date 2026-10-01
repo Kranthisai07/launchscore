@@ -4,3 +4,4 @@ dist/
 .DS_Store
 launchscore-report.json
 launchscore-card*.png
+launchscore-report.html

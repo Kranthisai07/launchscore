@@ -15,7 +15,7 @@ Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a 
 - [x] M6 SEC-002, SEC-005, SEO-002 to SEO-005.
 - [x] M7 A11Y-001 (axe-core) and PERF-001 (Lighthouse 13, so Node 22.19+).
 - [x] M8 HYG-001, HYG-002, HYG-004, HYG-005, HYG-006.
-- [ ] M9 HTML report in plain English: what's wrong, why it matters, how to fix, grouped by severity.
+- [x] M9 HTML report in plain English: what's wrong, why it matters, how to fix, grouped by severity. One self-contained `launchscore-report.html` (no JavaScript, no external requests), plus `--open`.
 - [ ] M10 Run against 10 real public sites you own or have permission for. Log every false positive and fix it.
 
 ## Week 3: active checks + fix plugin

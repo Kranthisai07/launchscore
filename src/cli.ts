@@ -1,5 +1,7 @@
 import { Command } from "commander";
+import { openFile } from "./open.js";
 import { scanAndWrite } from "./scan.js";
+import { VERSION } from "./version.js";
 
 export async function main(argv: string[] = process.argv): Promise<void> {
   const program = new Command();
@@ -7,11 +9,12 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   program
     .name("launchscore")
     .description("Scan a live website for security, SEO, accessibility, performance, and hygiene issues.")
-    .version("0.1.0")
+    .version(VERSION)
     .argument("<url>", "URL to scan")
     .option("-o, --out <dir>", "folder to write the report into", ".")
     .option("--no-perf", "skip the performance test (it is slow on big sites)")
-    .action(async (url: string, opts: { out: string; perf: boolean }) => {
+    .option("--open", "open the web report in your browser when the scan finishes")
+    .action(async (url: string, opts: { out: string; perf: boolean; open?: boolean }) => {
       try {
         const summary = await scanAndWrite(url, opts.out, {
           skipPerformance: !opts.perf,
@@ -27,8 +30,12 @@ export async function main(argv: string[] = process.argv): Promise<void> {
         console.log(`Detected: ${summary.detected}`);
         console.log(`Not tested: ${summary.notTested}`);
         console.log(`Report: ${summary.reportPath}`);
+        console.log(`Web report: ${summary.htmlPath}`);
         for (const card of summary.cardPaths) console.log(`Card: ${card}`);
         if (summary.cardError) console.warn(`Could not create the share cards: ${summary.cardError}`);
+        if (opts.open) {
+          openFile(summary.htmlPath, () => console.warn(`Could not open the browser. Open this file yourself: ${summary.htmlPath}`));
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (/Executable doesn't exist/i.test(message)) {

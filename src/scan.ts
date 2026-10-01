@@ -1,10 +1,13 @@
 import { runScan, type RunOptions } from "./runner.js";
 import { buildReport, writeJsonReport } from "./report/json.js";
-import { renderCards } from "./report/card.js";
+import { renderCardImages, writeCardImages } from "./report/card.js";
+import { renderHtmlReport, writeHtmlReport } from "./report/html.js";
+import { VERSION } from "./version.js";
 import type { Verdict } from "./score.js";
 
 export interface ScanSummary {
   reportPath: string;
+  htmlPath: string;
   cardPaths: string[];
   cardError?: string;
   checksRun: number;
@@ -43,21 +46,28 @@ export async function scanAndWrite(input: string, outDir: string, options: ScanO
   const { writeCards = true, ...runOptions } = options;
   const result = await runScan(normalizeUrl(input), runOptions);
   const report = buildReport(result);
-  // The report is written first: a card problem must never lose it.
+  // The JSON report is written first: a card problem must never lose it.
   const reportPath = await writeJsonReport(report, outDir);
 
   let cardPaths: string[] = [];
+  let cardPng: Buffer | undefined;
   let cardError: string | undefined;
   if (writeCards) {
     try {
-      cardPaths = await renderCards(report, outDir);
+      const images = await renderCardImages(report);
+      cardPaths = await writeCardImages(images, outDir);
+      cardPng = images.landscape;
     } catch (err) {
       cardError = err instanceof Error ? err.message.split("\n")[0] : String(err);
     }
   }
 
+  // The web page embeds the landscape card when there is one, and is written either way.
+  const htmlPath = await writeHtmlReport(renderHtmlReport(report, { cardPng, version: VERSION }), outDir);
+
   return {
     reportPath,
+    htmlPath,
     cardPaths,
     cardError,
     checksRun: result.checksRun,

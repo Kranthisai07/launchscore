@@ -18,9 +18,12 @@ npx launchscore https://mysite.com
 
 The scan takes about 15 to 30 seconds, most of it the speed test. Add `--no-perf` to skip the speed test (it is slow on big sites); performance then shows as not tested.
 
-This writes three files into the current folder (use `-o <folder>` to write them somewhere else):
+Add `--open` to open the web report in your browser when the scan finishes.
 
-- `launchscore-report.json`: the full report, including the score and every finding.
+This writes four files into the current folder (use `-o <folder>` to write them somewhere else):
+
+- `launchscore-report.html`: the report to read. One page that works offline, in plain English: your score, what to fix first and how, and what we could not check. It looks fine on a phone.
+- `launchscore-report.json`: the same report as data, including the score and every finding (the Claude Code plugin reads this one).
 - `launchscore-card.png` (1200x630): a share card for X and LinkedIn.
 - `launchscore-card-square.png` (1080x1350): the same card for Instagram.
 

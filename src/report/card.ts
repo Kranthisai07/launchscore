@@ -25,7 +25,7 @@ export const VERDICT_ACCENT: Record<Verdict, string> = {
 
 const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
-const CATEGORY_LABEL: Record<CategoryScore["name"], string> = {
+export const CATEGORY_LABEL: Record<CategoryScore["name"], string> = {
   security: "Security",
   seo: "SEO",
   accessibility: "Accessibility",
@@ -63,7 +63,7 @@ export function toCardData(report: Report): CardData {
   };
 }
 
-const escapeHtml = (text: string): string =>
+export const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 const SEGMENTS = 20;
@@ -151,12 +151,18 @@ function squareCss(): string {
 .issues li{font-size:29px;line-height:1.2}.none{font-size:34px}`;
 }
 
-export function cardHtml(data: CardData, size: CardSize): string {
-  const accent = VERDICT_ACCENT[data.verdict];
+// The small labels shown beside the verdict, on the card and in the report.
+export function tagsFor(data: CardData): string[] {
   const tags: string[] = [];
   if (data.partial) tags.push("Partial scan");
   if (data.verified) tags.push("Verified");
   else if (data.databaseNotTested) tags.push("Database not tested");
+  return tags;
+}
+
+export function cardHtml(data: CardData, size: CardSize): string {
+  const accent = VERDICT_ACCENT[data.verdict];
+  const tags = tagsFor(data);
 
   const issues =
     data.issues.length === 0
@@ -178,24 +184,36 @@ export function cardHtml(data: CardData, size: CardSize): string {
 </div></body></html>`;
 }
 
-export async function renderCards(report: Report, dir: string): Promise<string[]> {
+// Renders both cards to PNG bytes in one browser session. Nothing is written to disk.
+export async function renderCardImages(report: Report): Promise<Record<CardSize, Buffer>> {
   const data = toCardData(report);
-  await mkdir(dir, { recursive: true });
   const browser = await chromium.launch();
   try {
-    const written: string[] = [];
-    for (const [size, { width, height, file }] of Object.entries(CARD_SIZES) as [CardSize, (typeof CARD_SIZES)[CardSize]][]) {
+    const images = {} as Record<CardSize, Buffer>;
+    for (const [size, { width, height }] of Object.entries(CARD_SIZES) as [CardSize, (typeof CARD_SIZES)[CardSize]][]) {
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
       await page.setContent(cardHtml(data, size), { waitUntil: "load" });
       await page.evaluate("document.fonts.ready.then(() => true)");
-      const png = await page.screenshot({ type: "png" });
+      images[size] = await page.screenshot({ type: "png" });
       await page.close();
-      const target = path.join(dir, file);
-      await writeFile(target, png);
-      written.push(target);
     }
-    return written;
+    return images;
   } finally {
     await browser.close();
   }
+}
+
+export async function writeCardImages(images: Record<CardSize, Buffer>, dir: string): Promise<string[]> {
+  await mkdir(dir, { recursive: true });
+  const written: string[] = [];
+  for (const [size, { file }] of Object.entries(CARD_SIZES) as [CardSize, (typeof CARD_SIZES)[CardSize]][]) {
+    const target = path.join(dir, file);
+    await writeFile(target, images[size]);
+    written.push(target);
+  }
+  return written;
+}
+
+export async function renderCards(report: Report, dir: string): Promise<string[]> {
+  return writeCardImages(await renderCardImages(report), dir);
 }

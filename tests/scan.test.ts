@@ -49,6 +49,12 @@ describe("scanAndWrite", () => {
       checksRun: 17,
     });
     expect(summary.cardError).toBeUndefined();
+    expect(path.basename(summary.htmlPath)).toBe("launchscore-report.html");
+    const html = await readFile(summary.htmlPath, "utf8");
+    expect(html).toContain("127.0.0.1");
+    expect(html).toContain("BLOCKED: CRITICAL ISSUE");
+    expect(html).toContain('<img class="card-img"'); // the landscape card is embedded
+    expect(html).toContain("data:image/png;base64,");
     expect(summary.cardPaths.map((p) => path.basename(p))).toEqual(["launchscore-card.png", "launchscore-card-square.png"]);
     for (const file of summary.cardPaths) expect(existsSync(file)).toBe(true);
 
@@ -70,6 +76,10 @@ describe("scanAndWrite", () => {
       expect(summary.cardPaths).toEqual([]);
       expect(existsSync(path.join(other, "launchscore-report.json"))).toBe(true);
       expect(existsSync(path.join(other, "launchscore-card.png"))).toBe(false);
+      // the web report is still written, just without the picture
+      const html = await readFile(summary.htmlPath, "utf8");
+      expect(html).toContain('<section id="fix-first"');
+      expect(html).not.toContain("<img");
     } finally {
       await rm(other, { recursive: true, force: true });
     }

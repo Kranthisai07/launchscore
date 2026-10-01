@@ -7,36 +7,9 @@ import { FAKE_SECRETS } from "../fixtures/secrets.js";
 import { cardHtml, CARD_SIZES, PALETTE, renderCards, toCardData, VERDICT_ACCENT, type CardSize } from "../src/report/card.js";
 import { buildReport, type Report } from "../src/report/json.js";
 import { runScan } from "../src/runner.js";
-import { computeScore } from "../src/score.js";
-import type { Finding } from "../src/types.js";
+import { ALL_CATEGORIES, finding, makeReport } from "./helpers/report.js";
 
-const ALL = ["security", "seo", "accessibility", "performance", "hygiene"] as const;
-
-const finding = (title: string, severity: Finding["severity"], evidence = "EVIDENCE-SHOULD-NEVER-APPEAR"): Finding => ({
-  checkId: "TEST-001",
-  severity,
-  title,
-  why: "WHY-SHOULD-NEVER-APPEAR",
-  evidence,
-  fix: "FIX-SHOULD-NEVER-APPEAR",
-});
-
-function makeReport(overrides: Partial<Report> = {}, scoreInput?: Parameters<typeof computeScore>[0]): Report {
-  const s = computeScore(scoreInput ?? { findings: [], testedCategories: ALL });
-  return {
-    url: "https://shop.example.org:8443/private/path?token=SECRET-QUERY#frag",
-    scannedAt: "2026-10-01T00:00:00.000Z",
-    findings: [],
-    detected: [],
-    notTested: [],
-    score: s.score,
-    verdict: s.verdict,
-    categories: s.categories,
-    partial: s.partial,
-    verified: false,
-    ...overrides,
-  };
-}
+const ALL = ALL_CATEGORIES;
 
 // WCAG relative-luminance contrast ratio
 const luminance = (hex: string): number => {
