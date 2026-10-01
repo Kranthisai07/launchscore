@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Harbor Bakery | Fresh sourdough delivered in Portland</title>
+  <meta name="description" content="Harbor Bakery bakes small-batch sourdough every morning and delivers it across Portland. Order by 8pm for next-day delivery.">
+  <link rel="canonical" href="{{ORIGIN}}/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Harbor Bakery | Fresh sourdough delivered in Portland">
+  <meta property="og:description" content="Small-batch sourdough baked every morning and delivered across Portland.">
+  <meta property="og:url" content="{{ORIGIN}}/">
+  <meta property="og:image" content="{{ORIGIN}}/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Harbor Bakery | Fresh sourdough delivered in Portland">
+  <meta name="twitter:description" content="Small-batch sourdough baked every morning and delivered across Portland.">
+  <meta name="twitter:image" content="{{ORIGIN}}/og.png">
+</head>
+<body>
+  <main>
+    <h1>Fresh sourdough, delivered to your door</h1>
+    <p>We bake every loaf by hand before sunrise and bring it to your neighborhood the same day.</p>
+    <img src="/favicon.svg" alt="Harbor Bakery wheat logo" width="64" height="64">
+    <form id="order" action="/" method="get">
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" autocomplete="email">
+      <button type="submit">Notify me about the next batch</button>
+    </form>
+  </main>
+  <footer>
+    <a href="/privacy.html">Privacy policy</a>
+    <a href="/terms.html">Terms of service</a>
+  </footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>

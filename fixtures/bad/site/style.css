@@ -1,0 +1,12 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #ffffff;
+  margin: 0 auto;
+  max-width: 40rem;
+  padding: 1rem;
+}
+
+/* Planted for A11Y-001: low-contrast text (about 1.6:1). */
+.muted {
+  color: #bbbbbb;
+}
