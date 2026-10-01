@@ -27,5 +27,5 @@ export const FAKE_SECRETS: Record<string, string> = {
   STRIPE_SK_LIVE: join("sk_", "live_", "FAKEFAKE", "FAKEFAKE", "FAKEFAKE"),
   SUPABASE_ANON_JWT: fakeSupabaseJwt("anon"),
   SUPABASE_SERVICE_JWT: fakeSupabaseJwt("service_role"),
-  SUPABASE_URL: join("https://", "fakefakefakefakefake", ".supabase", ".co"),
+  SUPABASE_URL: join("https://", "fakeproject", ".supabase", ".co"),
 };

@@ -1,4 +1,4 @@
-// Planted for SEC-001, SEC-005, HYG-005. Every key here is fake and assembled at serve time.
+// Planted for SEC-001 and HYG-005 (the Supabase URL is a SEC-005 detection). Every key here is fake and assembled at serve time.
 (function () {
   var config = {
     stripePublishableKey: "{{STRIPE_PK_TEST}}",

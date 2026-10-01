@@ -28,7 +28,7 @@ Security
 - SEC-002 Public source maps (passive).
 - SEC-003 Missing security headers: CSP, HSTS, frame protection, X-Content-Type-Options, Referrer-Policy (passive).
 - SEC-004 HTTPS and HTTP to HTTPS redirect (passive).
-- SEC-005 Supabase detected: report project URL presence and that an RLS test is available after verification (passive).
+- SEC-005 Supabase detected (passive). Not a finding and never scored. Produces an entry in the report's `detected` array (`stack: "supabase"`, project URL, and a note that an RLS test is available after verification).
 - SEC-006 Supabase RLS read test (active). Read the PostgREST schema with the anon key, attempt `select` with `limit=1` per table, report which tables are readable. Record table name and row-returned yes/no only. Never store or print row data.
 - SEC-007 Exposed `/.env`, `/.git/config` (active).
 
@@ -58,6 +58,13 @@ Launch hygiene
 - Severity: critical, high, medium, low. Deductions per severity within each category, floored at 0.
 - Any critical finding caps the total score at 49 and marks the card "NOT READY TO LAUNCH."
 - Active checks not run (unverified domain) show as "not tested," never as passed.
+
+## Report concept
+`launchscore-report.json` holds:
+- `findings`: the issues found. Only findings are scored.
+- `detected`: facts about the site's stack that are not problems, such as `{ checkId: "SEC-005", stack: "supabase", url, note }`. Excluded from scoring, and a clean site may still have entries here.
+- `notTested`: active checks that were not run (unverified domain).
+- score and category breakdown.
 
 ## Safety (non-negotiable)
 - Active checks require verification: the user runs `launchscore verify <domain>`, which issues a token, and the user either serves it at `/.well-known/launchscore.txt` or adds a DNS TXT record `launchscore-verify=<token>`.

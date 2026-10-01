@@ -10,6 +10,12 @@ export type Fetcher = (path: string) => Promise<Fetched>;
 // return true for every ID and fixtures/good must return false.
 export type Marker = (get: Fetcher) => Promise<boolean>;
 
+// Detections are facts about the stack, not problems (reported in `detected`, never scored).
+// They are present in BOTH fixtures, so they are tested separately from MARKERS.
+export const DETECTIONS: Record<string, Marker> = {
+  "SEC-005": async (get) => /https:\/\/[a-z0-9]+\.supabase\.co/.test((await get("/app.js")).body),
+};
+
 const SECURITY_HEADERS = [
   "content-security-policy",
   "strict-transport-security",
@@ -31,7 +37,6 @@ export const MARKERS: Record<string, Marker> = {
     const { headers } = await get("/");
     return SECURITY_HEADERS.some((name) => !headers.has(name));
   },
-  "SEC-005": async (get) => /https:\/\/[a-z0-9]+\.supabase\.co/.test((await get("/app.js")).body),
   "SEO-001": async (get) => {
     const { body } = await get("/");
     return !/<title>[^<]+<\/title>/i.test(body) || !/<meta\s+name="description"/i.test(body);

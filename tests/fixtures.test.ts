@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startFixtureServer, type FixtureName, type FixtureServer } from "../fixtures/server.js";
-import { MARKERS, type Fetcher } from "../fixtures/markers.js";
+import { DETECTIONS, MARKERS, type Fetcher } from "../fixtures/markers.js";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "fixtures");
 
@@ -78,14 +78,27 @@ describe("fixture servers", () => {
 
 describe("planted issues", () => {
   it("MANIFEST.md and markers.ts list the same check IDs", () => {
-    expect([...manifestIds].sort()).toEqual(Object.keys(MARKERS).sort());
+    expect([...manifestIds].sort()).toEqual(
+      [...Object.keys(MARKERS), ...Object.keys(DETECTIONS)].sort(),
+    );
   });
 
-  it.each(manifestIds)("%s is present in bad and absent from good", async (id) => {
+  it.each(Object.keys(MARKERS))("%s is present in bad and absent from good", async (id) => {
     const marker = MARKERS[id];
     expect(marker, `no marker for ${id}`).toBeDefined();
     expect(await marker(fetchers.bad), `${id} not planted in bad`).toBe(true);
     expect(await marker(fetchers.good), `${id} found in good`).toBe(false);
+  });
+});
+
+describe("detections (not findings)", () => {
+  it.each(Object.keys(DETECTIONS))("%s is detected in both good and bad", async (id) => {
+    expect(await DETECTIONS[id](fetchers.bad), `${id} not detected in bad`).toBe(true);
+    expect(await DETECTIONS[id](fetchers.good), `${id} not detected in good`).toBe(true);
+  });
+
+  it("no detection ID is also a planted-issue marker", () => {
+    for (const id of Object.keys(DETECTIONS)) expect(MARKERS[id]).toBeUndefined();
   });
 });
 
