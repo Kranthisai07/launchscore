@@ -9,7 +9,7 @@ let bad: FixtureServer;
 let goodCtx: PageContext;
 let badCtx: PageContext;
 
-// PERF-001 runs Lighthouse and has its own integration test (tests/lighthouse.integration.test.ts).
+// PERF-001 runs Lighthouse and has its own integration test (tests/lighthouse.browser.test.ts).
 const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "A11Y-001", "HYG-001", "HYG-002", "HYG-003", "HYG-004", "HYG-005", "HYG-006"];
 
 beforeAll(async () => {

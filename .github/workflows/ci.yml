@@ -5,7 +5,39 @@ on:
     branches: ["**"]
 
 jobs:
-  test:
+  # Everything that does not start a browser. No Chromium is installed here, so a test that needs one
+  # fails this job, and tests/browser-split.test.ts catches that locally too.
+  unit:
+    name: unit (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    env:
+      LAUNCHSCORE_SKIP_BROWSER_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm build
+
+      - run: pnpm test
+
+  # Tests that drive Chromium: page loads, scans, the share cards, the HTML report in a real browser,
+  # and Lighthouse. Node 22 only.
+  browser:
+    name: browser (Node 22)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,4 +53,4 @@ jobs:
 
       - run: pnpm exec playwright install --with-deps chromium
 
-      - run: pnpm test
+      - run: pnpm test:browser

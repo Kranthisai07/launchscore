@@ -1,10 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startFixtureServer, type FixtureServer } from "../fixtures/server.js";
-import { FAKE_SECRETS } from "../fixtures/secrets.js";
-import { redact } from "../src/redact.js";
+import { describe, expect, it } from "vitest";
 import { METHODOLOGY_URL, plainReason, renderHtmlReport } from "../src/report/html.js";
-import { buildReport, type Report } from "../src/report/json.js";
-import { runScan } from "../src/runner.js";
+import { type Report } from "../src/report/json.js";
 import { computeScore } from "../src/score.js";
 import { finding, makeReport } from "./helpers/report.js";
 
@@ -339,41 +335,5 @@ describe("share card and footer", () => {
     expect(footer).toContain("launchscore 9.9.9");
     expect(footer).toContain(`href="${METHODOLOGY_URL}"`);
     expect(footer).toContain('rel="noopener noreferrer"');
-  });
-});
-
-describe("a real scan of the bad fixture", () => {
-  let bad: FixtureServer;
-  let html: string;
-
-  beforeAll(async () => {
-    bad = await startFixtureServer("bad");
-    const report = buildReport(await runScan(bad.url + "/", { skipPerformance: true }));
-    html = render(report, Buffer.from("png"));
-  });
-
-  afterAll(async () => {
-    await bad.close();
-  });
-
-  it("contains no full secret, nor the unredacted middle of one", () => {
-    expect(html).not.toContain(FAKE_SECRETS.STRIPE_SK_LIVE);
-    expect(html).not.toContain(FAKE_SECRETS.SUPABASE_SERVICE_JWT);
-    expect(html).not.toContain(FAKE_SECRETS.STRIPE_SK_LIVE.slice(6, 20));
-    expect(html).not.toContain(FAKE_SECRETS.SUPABASE_SERVICE_JWT.slice(10, 40));
-    expect(html).not.toContain(FAKE_SECRETS.SUPABASE_ANON_JWT);
-  });
-
-  it("shows the redacted forms instead", () => {
-    expect(html).toContain(redact(FAKE_SECRETS.STRIPE_SK_LIVE));
-    expect(html).toContain(redact(FAKE_SECRETS.SUPABASE_SERVICE_JWT));
-  });
-
-  it("has every section, the findings, the detection and the skipped speed test", () => {
-    for (const id of [...IDS, "share"]) expect(html).toContain(`<section id="${id}"`);
-    expect(sectionOf(html, "fix-first")).toContain("A secret Stripe payment key is visible in your website&#39;s code");
-    expect(sectionOf(html, "detected")).toContain("fakeproject.supabase.co");
-    expect(sectionOf(html, "not-checked")).toContain("You chose to skip the speed test.");
-    expect(html).toContain("28 things to look at");
   });
 });
