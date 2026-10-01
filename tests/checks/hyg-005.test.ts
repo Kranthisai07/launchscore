@@ -92,7 +92,7 @@ describe("HYG-005 never prints a secret", () => {
     ["a Stripe live key", KEYS.stripeLive],
     ["an OpenAI key", KEYS.openaiProject],
     ["a GitHub token", KEYS.githubClassic],
-    ["a long random token", "Zk3dE6gH9jK2mN5pQ8sT1vW4yZ7xC0aB"],
+    ["a long random token", ["Zk3dE6gH9j", "K2mN5pQ8sT", "1vW4yZ7xC0", "aB"].join("")],
   ])("redacts %s in the message", async (_name, secret) => {
     const findings = await run([{ text: `Request failed with key ${secret} for user`, url: "https://shop.test/a.js" }]);
     expect(findings[0].evidence).not.toContain(secret);
