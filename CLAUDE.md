@@ -12,6 +12,8 @@ Read SPEC.md and PLAN.md before any work. Work only on the next unchecked milest
 ```
 src/
   cli.ts              entry, arg parsing
+  scan.ts             runs the runner and writes the JSON report (used by cli.ts)
+  types.ts            Check, Finding, Detection, NotTested
   runner.ts           loads page context, runs checks, applies scoring
   context.ts          PageContext: url, html, headers, scripts (url + body), consoleErrors, links
   checks/             one file per check, filename = check id (sec-001.ts)
@@ -36,6 +38,7 @@ interface Check {
   category: Category;
   mode: "passive" | "active";
   run(ctx: PageContext): Promise<Finding[]>;
+  detect?(ctx: PageContext): Promise<Detection[]>;  // stack facts (SEC-005), reported but never scored
 }
 
 interface Finding {

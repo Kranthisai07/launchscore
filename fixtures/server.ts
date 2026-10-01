@@ -41,13 +41,29 @@ function render(text: string, origin: string): string {
   return text.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key: string) => values[key] ?? match);
 }
 
-export async function startFixtureServer(name: FixtureName): Promise<FixtureServer> {
+export type ExtraRoute = (req: http.IncomingMessage, res: http.ServerResponse, origin: string) => void;
+
+export interface FixtureServerOptions {
+  // Test-only: extra path handlers checked before the fixture's own files.
+  // The fixtures themselves never define these.
+  extraRoutes?: Record<string, ExtraRoute>;
+}
+
+export async function startFixtureServer(
+  name: FixtureName,
+  options: FixtureServerOptions = {},
+): Promise<FixtureServer> {
   const siteDir = path.join(fixturesDir, name, "site");
   const extraHeaders = FIXTURE_HEADERS[name];
   let origin = "";
 
   const server = http.createServer(async (req, res) => {
     const pathname = decodeURIComponent(new URL(req.url ?? "/", "http://localhost").pathname);
+    const extra = options.extraRoutes?.[pathname];
+    if (extra) {
+      extra(req, res, origin);
+      return;
+    }
     const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
     const filePath = path.join(siteDir, path.normalize(relative));
 
