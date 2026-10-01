@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { openFile } from "./open.js";
 import { scanAndWrite } from "./scan.js";
 import { VERSION } from "./version.js";
+import { pauseBeforeExit } from "./wait.js";
 
 export async function main(argv: string[] = process.argv): Promise<void> {
   const program = new Command();
@@ -14,7 +15,8 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     .option("-o, --out <dir>", "folder to write the report into", ".")
     .option("--no-perf", "skip the performance test (it is slow on big sites)")
     .option("--open", "open the web report in your browser when the scan finishes")
-    .action(async (url: string, opts: { out: string; perf: boolean; open?: boolean }) => {
+    .option("--no-wait", "do not wait for Enter before closing (for scripts)")
+    .action(async (url: string, opts: { out: string; perf: boolean; open?: boolean; wait: boolean }) => {
       try {
         const summary = await scanAndWrite(url, opts.out, {
           skipPerformance: !opts.perf,
@@ -45,6 +47,8 @@ export async function main(argv: string[] = process.argv): Promise<void> {
         }
         process.exitCode = 1;
       }
+      // Keeps the window open so the result (or the error) can be read.
+      await pauseBeforeExit(!opts.wait);
     });
 
   await program.parseAsync(argv);

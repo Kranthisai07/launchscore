@@ -18,7 +18,7 @@ npx launchscore https://mysite.com
 
 The scan takes about 15 to 30 seconds, most of it the speed test. Add `--no-perf` to skip the speed test (it is slow on big sites); performance then shows as not tested.
 
-Add `--open` to open the web report in your browser when the scan finishes.
+Add `--open` to open the web report in your browser when the scan finishes. When you run it in a terminal it waits for Enter at the end, so a window opened just for it does not close before you can read the result; add `--no-wait` to skip that (scripts and CI never wait).
 
 This writes four files into the current folder (use `-o <folder>` to write them somewhere else):
 
