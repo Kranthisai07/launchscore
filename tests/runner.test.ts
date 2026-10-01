@@ -290,3 +290,21 @@ describe("scoring in the runner", () => {
     expect(result.verified).toBe(false);
   });
 });
+
+describe("notTested entries added by checks", () => {
+  it("are reported by the runner and do not by themselves make the scan partial", async () => {
+    const adds: Check = {
+      id: "T-ADD",
+      title: "Adds an entry",
+      category: "security",
+      mode: "passive",
+      async run(ctx) {
+        ctx.notTested.push({ checkId: "T-ADD", title: "Adds an entry", reason: "3 things not checked (limit 20)" });
+        return [];
+      },
+    };
+    const result = await runScan(good.url + "/", { checks: [...fiveCategories(), adds] });
+    expect(result.notTested).toEqual([{ checkId: "T-ADD", title: "Adds an entry", reason: "3 things not checked (limit 20)" }]);
+    expect(result.score).toMatchObject({ verdict: "READY TO LAUNCH", partial: false });
+  });
+});

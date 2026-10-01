@@ -58,16 +58,27 @@ export const sec002: Check = {
       mapUrls.push(url);
     }
 
+    const checked = mapUrls.slice(0, MAX_MAPS);
     const exposed: string[] = inline.map((u) => `inline source map in ${withoutQuery(new URL(u))}`);
     const results = await Promise.all(
-      mapUrls.slice(0, MAX_MAPS).map(async (url) => {
+      checked.map(async (url) => {
         const res = await ctx.fetch(url.href, { maxBytes: MAX_MAP_BYTES });
         return res && res.status === 200 && hasSource(res.body, res.truncated) ? withoutQuery(url) : null;
       }),
     );
     exposed.push(...results.filter((r): r is string => r !== null));
 
-    if (exposed.length === 0) return [];
+    // Over the cap and nothing public among the ones we did check: say how many we never looked at.
+    if (exposed.length === 0) {
+      if (mapUrls.length > MAX_MAPS) {
+        ctx.notTested.push({
+          checkId: "SEC-002",
+          title: "Public source maps",
+          reason: `${mapUrls.length - MAX_MAPS} source maps not checked (limit ${MAX_MAPS})`,
+        });
+      }
+      return [];
+    }
     const more = exposed.length > 1 ? ` and ${exposed.length - 1} more` : "";
     const finding: Finding = {
       checkId: "SEC-002",

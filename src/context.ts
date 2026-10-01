@@ -1,5 +1,6 @@
 import { chromium, type Response } from "playwright";
 import { createFetcher, type PageFetch } from "./fetcher.js";
+import type { NotTested } from "./types.js";
 
 export interface PageContext {
   url: string; // as requested
@@ -15,6 +16,8 @@ export interface PageContext {
   // The only way checks request anything themselves: 5 at a time, 10 s timeout, same-host redirects,
   // and only to hosts this page already uses. Returns null when blocked or failed.
   fetch: PageFetch;
+  // Checks add an entry when they could not look at everything (e.g. a cap was hit); the runner reports them.
+  notTested: NotTested[];
 }
 
 export interface ContextOptions {
@@ -113,6 +116,7 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
       consoleErrors,
       links,
       fetch: createFetcher({ allowedHosts }),
+      notTested: [],
     };
   } finally {
     await browser.close();

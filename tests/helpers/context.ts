@@ -17,6 +17,7 @@ export function makeContext(overrides: Partial<PageContext> = {}): PageContext {
     consoleErrors: [],
     links: [],
     fetch: async () => null, // unit tests never touch the network
+    notTested: [],
     ...overrides,
   };
 }

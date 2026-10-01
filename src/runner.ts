@@ -106,7 +106,7 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
     scannedAt: new Date().toISOString(),
     findings: outcomes.flatMap((o) => o.findings),
     detected: outcomes.flatMap((o) => o.detected),
-    notTested: [...notTested, ...outcomes.flatMap((o) => (o.notTested ? [o.notTested] : []))],
+    notTested: [...notTested, ...ctx.notTested, ...outcomes.flatMap((o) => (o.notTested ? [o.notTested] : []))],
     checksRun: toRun.length,
     score,
     verified: completed.some((o) => o.check.mode === "active"),

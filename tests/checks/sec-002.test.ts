@@ -130,6 +130,41 @@ describe("SEC-002 limits", () => {
     expect(new Set(fetch.mock.calls.map((c) => c[0])).size).toBe(20);
   });
 
+  describe("when more than 20 maps are referenced", () => {
+    const many = (count: number) =>
+      Array.from({ length: count }, (_, i) => script(`https://shop.test/${i}.js`, comment(`${i}.js.map`)));
+
+    it("records how many were not checked when none of the first 20 is public", async () => {
+      const ctx = makeContext({ scripts: many(25), fetch: routedFetch({}) });
+      expect(await sec002.run(ctx)).toEqual([]);
+      expect(ctx.notTested).toEqual([
+        { checkId: "SEC-002", title: "Public source maps", reason: "5 source maps not checked (limit 20)" },
+      ]);
+    });
+
+    it("counts only distinct map URLs", async () => {
+      const scripts = [...many(22), script("https://shop.test/dup.js", comment("0.js.map"))];
+      const ctx = makeContext({ scripts, fetch: routedFetch({}) });
+      await sec002.run(ctx);
+      expect(ctx.notTested.map((n) => n.reason)).toEqual(["2 source maps not checked (limit 20)"]);
+    });
+
+    it("adds nothing when one of the first 20 is public (there is a finding already)", async () => {
+      const ctx = makeContext({
+        scripts: many(25),
+        fetch: routedFetch({ "https://shop.test/3.js.map": fetched(200, map()) }),
+      });
+      expect(await sec002.run(ctx)).toHaveLength(1);
+      expect(ctx.notTested).toEqual([]);
+    });
+
+    it("adds nothing at exactly 20 maps", async () => {
+      const ctx = makeContext({ scripts: many(20), fetch: routedFetch({}) });
+      await sec002.run(ctx);
+      expect(ctx.notTested).toEqual([]);
+    });
+  });
+
   it("asks for a larger body than the default for maps", async () => {
     const fetch = routedFetch({});
     const scripts = [script("https://shop.test/a.js", comment("a.js.map"))];
