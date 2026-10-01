@@ -10,7 +10,7 @@ let goodCtx: PageContext;
 let badCtx: PageContext;
 
 // PERF-001 runs Lighthouse and has its own integration test (tests/lighthouse.integration.test.ts).
-const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "A11Y-001", "HYG-003"];
+const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "A11Y-001", "HYG-001", "HYG-002", "HYG-003", "HYG-004", "HYG-005", "HYG-006"];
 
 beforeAll(async () => {
   [good, bad] = await Promise.all([startFixtureServer("good"), startFixtureServer("bad")]);
@@ -31,8 +31,8 @@ const detectionsFor = async (id: string, ctx: PageContext): Promise<Detection[]>
 const severities = (findings: Finding[]) => findings.map((f) => f.severity);
 
 describe("registry", () => {
-  it("has the thirteen checks", () => {
-    expect(checks.map((c) => c.id)).toEqual([...IDS.slice(0, 11), "PERF-001", "HYG-003"]);
+  it("has the eighteen checks", () => {
+    expect(checks.map((c) => c.id)).toEqual([...IDS.slice(0, 11), "PERF-001", ...IDS.slice(11)]);
     expect(checks.every((c) => c.mode === "passive")).toBe(true);
   });
 });
@@ -130,6 +130,37 @@ describe("bad fixture triggers exactly the planted findings", () => {
       ["high", "Some form fields have no label"],
     ]);
     expect(findings.map((f) => f.evidence)).toEqual(["1 element, first: .muted", "1 element, first: img", "1 element, first: input"]);
+  });
+
+  it("HYG-001: no privacy link, and the page collects data (form plus Supabase), so high", async () => {
+    const findings = await findingsFor("HYG-001", badCtx);
+    expect(findings.map((f) => f.severity)).toEqual(["high"]);
+    expect(findings[0].evidence).toMatch(/Supabase|email address/);
+  });
+
+  it("HYG-002: no terms link, low", async () => {
+    expect(severities(await findingsFor("HYG-002", badCtx))).toEqual(["low"]);
+  });
+
+  it("HYG-004: the unchanged Vite icon, low", async () => {
+    const findings = await findingsFor("HYG-004", badCtx);
+    expect(severities(findings)).toEqual(["low"]);
+    expect(findings[0].title).toContain("default Vite icon");
+    expect(findings[0].evidence).toBe("/vite.svg is the unchanged Vite starter icon");
+  });
+
+  it("HYG-005: the script that crashes on load, first-party so medium", async () => {
+    const findings = await findingsFor("HYG-005", badCtx);
+    expect(severities(findings)).toEqual(["medium"]);
+    expect(findings[0].evidence).toContain("undefinedWidget is not defined");
+    expect(findings[0].evidence).toContain("(in /app.js)");
+  });
+
+  it("HYG-006: the link to a page that does not exist, medium", async () => {
+    const findings = await findingsFor("HYG-006", badCtx);
+    expect(severities(findings)).toEqual(["medium"]);
+    expect(findings[0].evidence).toBe("1 broken link, first: /missing-page");
+    expect(badCtx.notTested).toEqual([]); // the fixture says 404, so broken links can be judged
   });
 
   it("HYG-003: lorem ipsum, Your Company, John Doe, example.com email", async () => {

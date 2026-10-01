@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFetcher, MAX_CONCURRENT_REQUESTS } from "../src/fetcher.js";
 
-type Init = { redirect: "manual"; signal: AbortSignal; headers: Record<string, string> };
+type Init = { method: "GET" | "HEAD"; redirect: "manual"; signal: AbortSignal; headers: Record<string, string> };
 
 const respond = (status = 200, body = "ok", headers: Record<string, string> = {}): Response =>
   new Response(status === 204 || (status >= 300 && status < 400) ? null : body, { status, headers });
@@ -17,6 +17,7 @@ describe("createFetcher", () => {
       status: 200,
       headers: expect.objectContaining({ "content-type": "text/plain", "x-thing": "1" }),
       body: "hello",
+      bytes: Buffer.from("hello"),
       truncated: false,
     });
   });
@@ -129,5 +130,29 @@ describe("createFetcher", () => {
       const result = await make(async () => respond(200, "a".repeat(10)))("https://shop.test/", { maxBytes: 10 });
       expect(result).toMatchObject({ body: "a".repeat(10), truncated: false });
     });
+  });
+});
+
+describe("createFetcher: methods and raw bytes", () => {
+  it("sends GET by default and HEAD when asked", async () => {
+    const impl = vi.fn(async (_url: string, _init: Init) => respond());
+    const fetcher = createFetcher({ allowedHosts: ["shop.test"], fetchImpl: impl });
+    await fetcher("https://shop.test/a");
+    await fetcher("https://shop.test/b", { method: "HEAD" });
+    expect(impl.mock.calls.map((c) => c[1].method)).toEqual(["GET", "HEAD"]);
+  });
+
+  it("keeps the exact bytes of a binary body", async () => {
+    const binary = new Uint8Array([0, 0, 1, 0, 255, 254, 128, 7]);
+    const fetcher = createFetcher({ allowedHosts: ["shop.test"], fetchImpl: async () => new Response(binary, { status: 200 }) });
+    const result = await fetcher("https://shop.test/favicon.ico");
+    expect([...result!.bytes]).toEqual([...binary]);
+  });
+
+  it("reads bytes up to the cap only", async () => {
+    const fetcher = createFetcher({ allowedHosts: ["shop.test"], fetchImpl: async () => respond(200, "a".repeat(50)) });
+    const result = await fetcher("https://shop.test/", { maxBytes: 8 });
+    expect(result!.bytes.length).toBe(8);
+    expect(result!.truncated).toBe(true);
   });
 });

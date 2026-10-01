@@ -9,6 +9,7 @@ const reply = (status: number, location?: string): FetchResult => ({
   status,
   headers: location ? { location } : {},
   body: "",
+  bytes: Buffer.alloc(0),
   truncated: false,
 });
 

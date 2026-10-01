@@ -41,25 +41,25 @@ describe("scanAndWrite", () => {
   it("writes the report and both cards and summarizes the score", async () => {
     const summary = await scanAndWrite(bad.url, dir, { skipPerformance: true });
     expect(summary).toMatchObject({
-      score: 11,
+      score: 4,
       verdict: "BLOCKED: CRITICAL ISSUE",
       partial: true,
       untestedCategories: ["performance"],
-      findings: 23,
-      checksRun: 12,
+      findings: 28,
+      checksRun: 17,
     });
     expect(summary.cardError).toBeUndefined();
     expect(summary.cardPaths.map((p) => path.basename(p))).toEqual(["launchscore-card.png", "launchscore-card-square.png"]);
     for (const file of summary.cardPaths) expect(existsSync(file)).toBe(true);
 
     const report = ReportSchema.parse(JSON.parse(await readFile(summary.reportPath, "utf8")));
-    expect(report).toMatchObject({ score: 11, verdict: "BLOCKED: CRITICAL ISSUE", partial: true, verified: false });
+    expect(report).toMatchObject({ score: 4, verdict: "BLOCKED: CRITICAL ISSUE", partial: true, verified: false });
     expect(report.categories.map((c) => [c.name, c.score])).toEqual([
       ["security", 0],
       ["seo", 0],
       ["accessibility", 25],
       ["performance", null],
-      ["hygiene", 40],
+      ["hygiene", 0],
     ]);
   });
 

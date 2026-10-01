@@ -8,13 +8,15 @@ export interface FetchResult {
   url: string; // final URL after any same-host redirects
   status: number;
   headers: Record<string, string>; // keys lowercased
-  body: string;
+  body: string; // utf8 text of the body (lossy for binary files: use bytes for those)
+  bytes: Buffer; // the raw body, for hashing icons and other binary files
   truncated: boolean; // the body was cut at maxBytes
 }
 
 export interface FetchOptions {
   maxBytes?: number; // default 1 MB
   followRedirects?: boolean; // default true (same host only)
+  method?: "GET" | "HEAD"; // default GET
 }
 
 // null means the request was blocked, timed out, or failed: callers treat it as "unknown".
@@ -22,7 +24,7 @@ export type PageFetch = (url: string, options?: FetchOptions) => Promise<FetchRe
 
 type FetchImpl = (
   url: string,
-  init: { redirect: "manual"; signal: AbortSignal; headers: Record<string, string> },
+  init: { method: "GET" | "HEAD"; redirect: "manual"; signal: AbortSignal; headers: Record<string, string> },
 ) => Promise<Response>;
 
 export interface FetcherOptions {
@@ -38,8 +40,8 @@ export const REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_BYTES = 1024 * 1024;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
-async function readBody(res: Response, maxBytes: number): Promise<{ body: string; truncated: boolean }> {
-  if (!res.body) return { body: "", truncated: false };
+async function readBody(res: Response, maxBytes: number): Promise<{ body: string; bytes: Buffer; truncated: boolean }> {
+  if (!res.body) return { body: "", bytes: Buffer.alloc(0), truncated: false };
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -56,7 +58,8 @@ async function readBody(res: Response, maxBytes: number): Promise<{ body: string
     }
     chunks.push(value);
   }
-  return { body: Buffer.concat(chunks).toString("utf8"), truncated };
+  const bytes = Buffer.concat(chunks);
+  return { body: bytes.toString("utf8"), bytes, truncated };
 }
 
 export function createFetcher(options: FetcherOptions): PageFetch {
@@ -87,6 +90,7 @@ export function createFetcher(options: FetcherOptions): PageFetch {
   return async (rawUrl, opts = {}) => {
     const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
     const follow = opts.followRedirects ?? true;
+    const method = opts.method ?? "GET";
     let current: URL;
     try {
       current = new URL(rawUrl);
@@ -101,15 +105,18 @@ export function createFetcher(options: FetcherOptions): PageFetch {
       let result: FetchResult;
       try {
         const res = await fetchImpl(current.href, {
+          method,
           redirect: "manual",
           signal: AbortSignal.timeout(timeoutMs),
           headers: { "user-agent": "launchscore" },
         });
         const headers = Object.fromEntries([...res.headers].map(([k, v]) => [k.toLowerCase(), v]));
         const isRedirect = REDIRECT_STATUSES.has(res.status);
-        const { body, truncated } = isRedirect ? { body: "", truncated: false } : await readBody(res, maxBytes);
+        const { body, bytes, truncated } = isRedirect
+          ? { body: "", bytes: Buffer.alloc(0), truncated: false }
+          : await readBody(res, maxBytes);
         if (isRedirect) await res.body?.cancel().catch(() => undefined);
-        result = { url: current.href, status: res.status, headers, body, truncated };
+        result = { url: current.href, status: res.status, headers, body, bytes, truncated };
       } catch {
         return null; // network error, timeout, or an unreadable body
       } finally {

@@ -9,12 +9,12 @@ One milestone per Claude Code session. Commit after each. Check boxes as you go.
 - [x] M4 First 5 checks: SEC-001, SEC-003, SEC-004, SEO-001, HYG-003. Tests against both fixtures. SEC-004 is tested with unit tests (no TLS on localhost).
 - [x] M5 Scoring + share card PNG (HTML template screenshotted by Playwright).
 
-Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a red card (about 18/100, BLOCKED: CRITICAL ISSUE) and JSON with 23 findings (SEC-001 x2, SEC-002 x1, SEC-003 x4, SEO-001 x2, SEO-002 x2, SEO-003 x2, SEO-004 x1, SEO-005 x2, A11Y-001 x3, HYG-003 x4; SEC-004 cannot trigger on localhost) plus up to 3 low speed tips from PERF-001, and 1 detection (Supabase). The performance score comes from Lighthouse and varies a little from run to run (57 here), so the bad total is "about" 18. The good fixture outputs zero findings and the same Supabase detection, all five categories tested, 100 and READY TO LAUNCH (card tag DATABASE NOT TESTED). With `--no-perf` performance is untested: bad = 11, good = 100 ALMOST READY.
+Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a red card (about 12/100, BLOCKED: CRITICAL ISSUE) and JSON with 28 findings (SEC-001 x2, SEC-002 x1, SEC-003 x4, SEO-001 x2, SEO-002 x2, SEO-003 x2, SEO-004 x1, SEO-005 x2, A11Y-001 x3, HYG-001 x1, HYG-002 x1, HYG-003 x4, HYG-004 x1, HYG-005 x1, HYG-006 x1; SEC-004 cannot trigger on localhost) plus up to 3 low speed tips from PERF-001, and 1 detection (Supabase). The performance score comes from Lighthouse and varies a little from run to run (57 here), so the bad total is "about" 12. The good fixture outputs zero findings and the same Supabase detection, all five categories tested, 100 and READY TO LAUNCH (card tag DATABASE NOT TESTED). With `--no-perf` performance is untested: bad = 4, good = 100 ALMOST READY.
 
 ## Week 2: remaining passive checks + HTML report
 - [x] M6 SEC-002, SEC-005, SEO-002 to SEO-005.
 - [x] M7 A11Y-001 (axe-core) and PERF-001 (Lighthouse 13, so Node 22.19+).
-- [ ] M8 HYG-001, HYG-002, HYG-004, HYG-005, HYG-006.
+- [x] M8 HYG-001, HYG-002, HYG-004, HYG-005, HYG-006.
 - [ ] M9 HTML report in plain English: what's wrong, why it matters, how to fix, grouped by severity.
 - [ ] M10 Run against 10 real public sites you own or have permission for. Log every false positive and fix it.
 

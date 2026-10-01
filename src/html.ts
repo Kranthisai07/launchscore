@@ -87,3 +87,19 @@ export function withoutHidden(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, " ");
 }
+
+export interface Anchor {
+  href: string;
+  text: string; // visible text, tags removed
+}
+
+// Every <a> that has an href, with the text a visitor sees.
+export function anchors(html: string): Anchor[] {
+  const found: Anchor[] = [];
+  for (const match of withoutHidden(html).matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi)) {
+    const href = attr(match[1], "href");
+    if (href === undefined) continue;
+    found.push({ href: decodeEntities(href).trim(), text: collapse(decodeEntities(match[2].replace(/<[^>]*>/g, " "))) });
+  }
+  return found;
+}

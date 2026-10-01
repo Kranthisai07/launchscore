@@ -190,3 +190,13 @@ export const sec001: Check = {
     });
   },
 };
+
+// Hides anything key-shaped in free text (for example a console error that quotes a key): known key
+// formats and long random-looking tokens are redacted, and query strings in addresses are dropped.
+export function scrubSecrets(text: string): string {
+  let out = text.replace(/(https?:\/\/[^\s"'<>)?#]+)\?[^\s"'<>)]*/g, "$1?…");
+  for (const rule of RULES) out = out.replace(rule.pattern, (_match, secret: string) => redact(secret));
+  out = out.replace(JWT_PATTERN, (_match, token: string) => redact(token));
+  // 32 or more letters, digits, dashes or underscores with at least one letter and one digit
+  return out.replace(/(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{32,}/g, (token) => redact(token));
+}

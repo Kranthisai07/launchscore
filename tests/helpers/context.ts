@@ -32,6 +32,7 @@ export const fetched = (status: number, body = "", headers: Record<string, strin
   status,
   headers,
   body,
+  bytes: Buffer.from(body),
   truncated,
 });
 

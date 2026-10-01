@@ -46,12 +46,12 @@ Performance
 - PERF-001 Lighthouse (mobile preset, performance only, Lighthouse 13 and Node 22.19+). The performance category score IS Lighthouse score (0 to 100), not deductions. Up to 3 tips, low severity, informational, never deducted. **Decision:** a tip needs an estimated saving of at least 300 ms (the largest of FCP, LCP, TBT or INP) and a Lighthouse score under 0.9. Smaller savings are noise: on the good fixture a 150 ms render-blocking stylesheet would otherwise put a tip on an otherwise perfect card. Runs last and alone. Failure or a 60 s timeout leaves the category not tested. `--no-perf` skips it (also not tested).
 
 Launch hygiene
-- HYG-001 Privacy policy link present.
-- HYG-002 Terms link present.
+- HYG-001 Privacy policy link present (link text or path: privacy, datenschutz, confidentialité, privacidad). Missing is medium, and high when the page collects data: a password field, an email field in a form, or a sign-in provider detected (Supabase, Firebase sign-in, Auth0, Clerk, Cognito, Okta).
+- HYG-002 Terms link present (terms, terms of service, terms and conditions, /terms, /tos, plus agb, nutzungsbedingungen, conditions générales, términos). Missing is low.
 - HYG-003 Placeholder content: lorem ipsum, "Your Company", "John Doe", example.com emails, fake testimonial patterns.
-- HYG-004 Default framework favicon.
-- HYG-005 Console errors on load.
-- HYG-006 Broken internal links (cap at 50 links).
+- HYG-004 Favicon: none (no icon link and /favicon.ico is 404 or a soft 404), an icon link to a missing file, or the unchanged starter icon of a framework, matched by SHA-256 against hashes taken from the framework's own template repository (`src/data/default-favicons.ts`: Vite, Next.js, Create React App, Astro, Nuxt, Angular). Never guessed; a framework is only listed once its file is verified. Low.
+- HYG-005 Console errors on load. Favicon requests and browser-extension noise are ignored. One finding with the count and the first message (key-shaped text is redacted, query strings dropped): medium when an error comes from the site itself (same host or a subdomain), low when only other sites' scripts, or the source is unknown, fail.
+- HYG-006 Broken internal links (cap at 50 links). HEAD, then GET to confirm; only 404 and 410 count as broken. One medium finding (count and first three paths, no query strings). A site that answers every address with a normal page (soft 404) cannot be checked: one request to an address that cannot exist detects this, and the report says "not tested" rather than clean.
 
 ## Scoring
 - Category weights: Security 40, SEO 15, Accessibility 15, Performance 15, Hygiene 15.

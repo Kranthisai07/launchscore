@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkRels, metaTags, withoutHidden } from "../src/html.js";
+import { anchors, linkRels, metaTags, withoutHidden } from "../src/html.js";
 
 describe("metaTags", () => {
   it("reads name, property and content in any attribute order and quote style", () => {
@@ -36,5 +36,20 @@ describe("withoutHidden", () => {
     expect(out).toContain("<h1>Keep</h1>");
     expect(out).toContain("<p>Also</p>");
     expect(out.match(/<h1/g)).toHaveLength(1);
+  });
+});
+
+describe("anchors", () => {
+  it("returns href and visible text, tags and entities handled", () => {
+    const html = '<a href="/privacy">Privacy <b>policy</b></a><A HREF=\'/t\'>Terms &amp; Conditions</A><a name="x">no href</a>';
+    expect(anchors(html)).toEqual([
+      { href: "/privacy", text: "Privacy policy" },
+      { href: "/t", text: "Terms & Conditions" },
+    ]);
+  });
+
+  it("ignores links in comments, scripts, styles, noscript and templates", () => {
+    const html = '<!-- <a href="/a">a</a> --><script>"<a href=\'/b\'>b</a>"</script><noscript><a href="/c">c</a></noscript><template><a href="/d">d</a></template><a href="/ok">ok</a>';
+    expect(anchors(html)).toEqual([{ href: "/ok", text: "ok" }]);
   });
 });

@@ -66,7 +66,9 @@ describe("buildContext on the bad fixture", () => {
     const big = badCtx.scripts.find((s) => s.url.endsWith("/big.js"));
     expect(big).toBeDefined();
     expect(big!.body.length).toBeGreaterThan(1_000_000);
-    expect(badCtx.consoleErrors.some((e) => e.includes("undefinedWidget"))).toBe(true);
+    const crash = badCtx.consoleErrors.find((e) => e.text.includes("undefinedWidget"));
+    expect(crash).toBeDefined();
+    expect(crash!.url).toBe(bad.url + "/app.js"); // the file it came from is recorded
   });
 
   it("collects the broken internal link", () => {

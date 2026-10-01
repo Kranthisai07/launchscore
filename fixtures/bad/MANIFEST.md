@@ -19,7 +19,7 @@ Not planted here: SEC-004 (localhost has no TLS, covered by unit tests in M4), S
 | HYG-001 | No privacy policy link. | `site/index.html` |
 | HYG-002 | No terms link. | `site/index.html` |
 | HYG-003 | "Lorem ipsum", "Your Company", "John Doe", `test@example.com`. | `site/index.html` |
-| HYG-004 | Default framework favicon (`vite.svg`). | `site/index.html`, `site/vite.svg` |
+| HYG-004 | Default framework favicon: `vite.svg` is the real classic Vite logo (MIT, from vitejs/vite), so its SHA-256 matches the known-default list. | `site/index.html`, `site/vite.svg` |
 | HYG-005 | Script calls an undefined object on load, which logs a console error. | `site/app.js` |
 | HYG-006 | Link to an internal page that does not exist. | `site/index.html` (`/missing-page`) |
 

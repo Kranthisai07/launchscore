@@ -4,6 +4,12 @@ import { chromium, type Response } from "playwright";
 import { createFetcher, type PageFetch } from "./fetcher.js";
 import type { Category, NotTested } from "./types.js";
 
+// An error the page logged, with the address of the file it came from when the browser said.
+export interface ConsoleError {
+  text: string;
+  url?: string;
+}
+
 export interface PageContext {
   url: string; // as requested
   finalUrl: string; // after redirects
@@ -13,7 +19,7 @@ export interface PageContext {
   html: string; // rendered DOM after load
   scripts: { url: string; body: string; headers?: Record<string, string> }[]; // headers lowercased
   skippedScripts: { url: string; reason: string }[]; // dropped by caps or unreadable
-  consoleErrors: string[];
+  consoleErrors: ConsoleError[];
   links: string[]; // same-origin <a href>, absolute, hash stripped, deduped
   // The only way checks request anything themselves: 5 at a time, 10 s timeout, same-host redirects,
   // and only to hosts this page already uses. Returns null when blocked or failed.
@@ -47,11 +53,14 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    const consoleErrors: string[] = [];
+    const consoleErrors: ConsoleError[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error") consoleErrors.push(msg.text());
+      if (msg.type() === "error") consoleErrors.push({ text: msg.text(), url: msg.location().url || undefined });
     });
-    page.on("pageerror", (err) => consoleErrors.push(err.message));
+    // An uncaught error names its file in the first line of the stack ("at ... http://host/app.js:13:1").
+    page.on("pageerror", (err) =>
+      consoleErrors.push({ text: err.message, url: /(https?:\/\/[^\s)]+?):\d+:\d+/.exec(err.stack ?? "")?.[1] }),
+    );
 
     // Bodies are read after load so slow responses never block event handling.
     const scriptResponses: Response[] = [];

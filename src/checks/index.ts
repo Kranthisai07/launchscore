@@ -11,12 +11,17 @@ import { seo004 } from "./seo-004.js";
 import { seo005 } from "./seo-005.js";
 import { a11y001 } from "./a11y-001.js";
 import { perf001 } from "./perf-001.js";
+import { hyg001 } from "./hyg-001.js";
+import { hyg002 } from "./hyg-002.js";
 import { hyg003 } from "./hyg-003.js";
+import { hyg004 } from "./hyg-004.js";
+import { hyg005 } from "./hyg-005.js";
+import { hyg006 } from "./hyg-006.js";
 
 export const checks: Check[] = [
   sec001, sec002, sec003, sec004, sec005,
   seo001, seo002, seo003, seo004, seo005,
   a11y001,
   perf001,
-  hyg003,
+  hyg001, hyg002, hyg003, hyg004, hyg005, hyg006,
 ];
