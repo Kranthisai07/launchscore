@@ -1,6 +1,7 @@
 import { buildContext, type ContextOptions, type PageContext } from "./context.js";
 import { checks as registry } from "./checks/index.js";
 import { isVerified } from "./verify.js";
+import { computeScore, type ScoreResult } from "./score.js";
 import type { Check, Detection, Finding, NotTested } from "./types.js";
 
 export const MAX_CONCURRENT_CHECKS = 5;
@@ -18,6 +19,8 @@ export interface ScanResult {
   detected: Detection[];
   notTested: NotTested[];
   checksRun: number;
+  score: ScoreResult;
+  verified: boolean; // at least one active check ran
 }
 
 // Runs fn over items with at most `limit` in flight. Results keep input order.
@@ -35,6 +38,7 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T) => Pr
 }
 
 interface CheckOutcome {
+  check: Check;
   findings: Finding[];
   detected: Detection[];
   notTested?: NotTested;
@@ -44,11 +48,12 @@ async function runCheck(check: Check, ctx: PageContext): Promise<CheckOutcome> {
   try {
     const findings = await check.run(ctx);
     const detected = check.detect ? await check.detect(ctx) : [];
-    return { findings, detected };
+    return { check, findings, detected };
   } catch (err) {
     // A crashed check is never reported as passed or as a finding: false positives are worse than misses.
     const message = err instanceof Error ? err.message.split("\n")[0].slice(0, 200) : "unknown error";
     return {
+      check,
       findings: [],
       detected: [],
       notTested: { checkId: check.id, title: check.title, reason: `check failed: ${message}` },
@@ -88,6 +93,14 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
     });
   }
 
+  // Only checks that completed count: a crashed check or an unverified active check tests nothing.
+  const completed = outcomes.filter((o) => !o.notTested);
+  const score = computeScore({
+    findings: completed.flatMap((o) => o.findings.map((f) => ({ category: o.check.category, severity: f.severity }))),
+    testedCategories: completed.map((o) => o.check.category),
+    incomplete: outcomes.some((o) => o.notTested) || ctx.skippedScripts.length > 0,
+  });
+
   return {
     url: ctx.finalUrl,
     scannedAt: new Date().toISOString(),
@@ -95,5 +108,7 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
     detected: outcomes.flatMap((o) => o.detected),
     notTested: [...notTested, ...outcomes.flatMap((o) => (o.notTested ? [o.notTested] : []))],
     checksRun: toRun.length,
+    score,
+    verified: completed.some((o) => o.check.mode === "active"),
   };
 }

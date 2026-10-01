@@ -13,11 +13,18 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     .action(async (url: string, opts: { out: string }) => {
       try {
         const summary = await scanAndWrite(url, opts.out);
+        console.log(`Score: ${summary.score === null ? "not scored" : `${summary.score}/100`} (${summary.verdict})`);
+        if (summary.partial) {
+          const missing = summary.untestedCategories.length ? `not tested: ${summary.untestedCategories.join(", ")}` : "some checks or scripts were skipped";
+          console.log(`Partial scan, ${missing}`);
+        }
         console.log(`Checks run: ${summary.checksRun}`);
         console.log(`Findings: ${summary.findings}`);
         console.log(`Detected: ${summary.detected}`);
         console.log(`Not tested: ${summary.notTested}`);
         console.log(`Report: ${summary.reportPath}`);
+        for (const card of summary.cardPaths) console.log(`Card: ${card}`);
+        if (summary.cardError) console.warn(`Could not create the share cards: ${summary.cardError}`);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (/Executable doesn't exist/i.test(message)) {

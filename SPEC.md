@@ -55,16 +55,24 @@ Launch hygiene
 
 ## Scoring
 - Category weights: Security 40, SEO 15, Accessibility 15, Performance 15, Hygiene 15.
-- Severity: critical, high, medium, low. Deductions per severity within each category, floored at 0.
-- Any critical finding caps the total score at 49 and marks the card "NOT READY TO LAUNCH."
-- Active checks not run (unverified domain) show as "not tested," never as passed.
+- Each tested category starts at 100. Deductions per finding: critical 60, high 30, medium 15, low 5. Floored at 0.
+- A category is tested when at least one of its checks completed. Untested categories show "not tested" (score null), never 100.
+- Total = weighted average over tested categories only, renormalized by the tested weight, rounded to a whole number. If no category was tested, there is no score and the verdict is "NOT SCORED".
+- Verdicts:
+  - Any critical finding: total capped at 49, verdict "BLOCKED: CRITICAL ISSUE".
+  - Otherwise 90 or more "READY TO LAUNCH", 70 to 89 "ALMOST READY", below 70 "NEEDS WORK".
+- A scan is **partial** when any category is untested, any script was skipped, or any check crashed. A partial scan can never be "READY TO LAUNCH": the verdict is capped at "ALMOST READY".
+- Active checks not run because the domain is unverified show as "not tested," never as passed. They do **not** make the scan partial or cap the verdict. Instead the card shows a "DATABASE NOT TESTED" tag when Supabase was detected and no active check ran, and a "VERIFIED" badge when active checks ran.
 
 ## Report concept
 `launchscore-report.json` holds:
 - `findings`: the issues found. Only findings are scored.
-- `detected`: facts about the site's stack that are not problems, such as `{ checkId: "SEC-005", stack: "supabase", url, note }`. Excluded from scoring, and a clean site may still have entries here.
-- `notTested`: active checks that were not run (unverified domain).
-- score and category breakdown.
+- `detected`: facts about the site stack that are not problems, such as `{ checkId: "SEC-005", stack: "supabase", url, note }`. Excluded from scoring, and a clean site may still have entries here.
+- `notTested`: checks that were not run (unverified domain), crashed, or could not scan every script.
+- `score` (0 to 100, or null when nothing was tested), `verdict`, `categories` (five entries of `{ name, score | null, tested }`), `partial`, and `verified` (active checks ran).
+
+## Share card
+Two PNGs next to the report: `launchscore-card.png` (1200x630) and `launchscore-card-square.png` (1080x1350). They show the score, verdict, hostname only (never a path or query), per-category bars, and the titles of the top three findings. They never show evidence or secrets.
 
 ## Safety (non-negotiable)
 - Active checks require verification: the user runs `launchscore verify <domain>`, which issues a token, and the user either serves it at `/.well-known/launchscore.txt` or adds a DNS TXT record `launchscore-verify=<token>`.

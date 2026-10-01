@@ -1,12 +1,24 @@
 import { runScan, type RunOptions } from "./runner.js";
 import { buildReport, writeJsonReport } from "./report/json.js";
+import { renderCards } from "./report/card.js";
+import type { Verdict } from "./score.js";
 
 export interface ScanSummary {
   reportPath: string;
+  cardPaths: string[];
+  cardError?: string;
   checksRun: number;
   findings: number;
   detected: number;
   notTested: number;
+  score: number | null;
+  verdict: Verdict;
+  partial: boolean;
+  untestedCategories: string[];
+}
+
+export interface ScanOptions extends RunOptions {
+  writeCards?: boolean; // default true
 }
 
 // http for localhost, https for everything else, so `launchscore mysite.com` just works.
@@ -27,14 +39,34 @@ export function normalizeUrl(input: string): string {
   return parsed.href;
 }
 
-export async function scanAndWrite(input: string, outDir: string, options?: RunOptions): Promise<ScanSummary> {
-  const result = await runScan(normalizeUrl(input), options);
-  const reportPath = await writeJsonReport(buildReport(result), outDir);
+export async function scanAndWrite(input: string, outDir: string, options: ScanOptions = {}): Promise<ScanSummary> {
+  const { writeCards = true, ...runOptions } = options;
+  const result = await runScan(normalizeUrl(input), runOptions);
+  const report = buildReport(result);
+  // The report is written first: a card problem must never lose it.
+  const reportPath = await writeJsonReport(report, outDir);
+
+  let cardPaths: string[] = [];
+  let cardError: string | undefined;
+  if (writeCards) {
+    try {
+      cardPaths = await renderCards(report, outDir);
+    } catch (err) {
+      cardError = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    }
+  }
+
   return {
     reportPath,
+    cardPaths,
+    cardError,
     checksRun: result.checksRun,
     findings: result.findings.length,
     detected: result.detected.length,
     notTested: result.notTested.length,
+    score: report.score,
+    verdict: report.verdict,
+    partial: report.partial,
+    untestedCategories: report.categories.filter((c) => !c.tested).map((c) => c.name),
   };
 }

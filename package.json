@@ -12,7 +12,8 @@
     "launchscore": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_LICENSES.md"
   ],
   "scripts": {
     "dev": "tsx src/cli.ts",
