@@ -1,6 +1,6 @@
 {
   "name": "launchscore",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Scan a live website for security, SEO, accessibility, performance, and hygiene issues.",
   "license": "MIT",
   "type": "module",
