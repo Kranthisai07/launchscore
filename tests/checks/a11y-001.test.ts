@@ -53,8 +53,9 @@ describe("summarizeAxe (recorded output from the fixtures)", () => {
     });
   });
 
-  it("uses WCAG A and AA tags only", () => {
-    expect(AXE_TAGS).toEqual(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]);
+  it("uses WCAG 2.0, 2.1 and 2.2 A and AA tags only (no best-practice rules)", () => {
+    expect(AXE_TAGS).toEqual(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+    expect(AXE_TAGS).not.toContain("best-practice");
   });
 });
 
@@ -112,6 +113,13 @@ describe("A11Y-001 mapping", () => {
     expect(finding.title).not.toContain("Technical axe wording");
     expect(finding.why.length).toBeGreaterThan(20);
     expect(finding.fix.length).toBeGreaterThan(15);
+  });
+
+  it.each(["critical", "serious", "moderate", "minor", null])("reports target-size as low whatever axe impact (%s)", async (impact) => {
+    const [finding] = await run([violation({ id: "target-size", impact })]);
+    expect(finding.severity).toBe("low");
+    expect(finding.title).toContain("too small");
+    expect(finding.title).not.toContain("Accessibility issue");
   });
 
   it("falls back to axe's help text and help page for other rules", async () => {

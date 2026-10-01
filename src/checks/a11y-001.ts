@@ -6,6 +6,10 @@ const SKIPPED_RULES = new Set(["document-title"]);
 
 const SEVERITY: Record<string, Severity> = { critical: "high", serious: "medium", moderate: "low", minor: "low" };
 
+// Rules whose severity is fixed whatever axe says. Small touch targets are worth fixing, but are far
+// less likely to stop someone using the page than a missing label or unreadable text.
+const SEVERITY_OVERRIDE: Record<string, Severity> = { "target-size": "low" };
+
 interface Plain {
   title: string;
   why: string;
@@ -38,6 +42,11 @@ const KNOWN: Record<string, Plain> = {
     why: "Screen reader users hear only the word button and cannot tell what it does.",
     fix: "Give each button visible text, or a hidden text label (aria-label) when it is only an icon.",
   },
+  "target-size": {
+    title: "Some buttons or links are too small or too close together to tap easily",
+    why: "People with shaky hands, large fingers or a small screen may tap the wrong thing.",
+    fix: "Make each tappable item at least 24 by 24 pixels, or leave enough space around it.",
+  },
   "html-has-lang": {
     title: "Your page does not say what language it is written in",
     why: "Screen readers may pronounce your text wrongly, and browsers cannot offer to translate it.",
@@ -51,7 +60,7 @@ function toFinding(v: AxeViolation): Finding {
   const known = KNOWN[v.id];
   return {
     checkId: "A11Y-001",
-    severity: SEVERITY[v.impact ?? ""] ?? "low",
+    severity: SEVERITY_OVERRIDE[v.id] ?? SEVERITY[v.impact ?? ""] ?? "low",
     title: known?.title ?? `Accessibility issue: ${v.help}`,
     why:
       known?.why ??

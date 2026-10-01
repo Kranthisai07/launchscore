@@ -40,10 +40,10 @@ SEO
 - SEO-005 Exactly one `h1`, canonical link.
 
 Accessibility
-- A11Y-001 axe-core violations, run during the page load. WCAG 2.0 and 2.1 level A and AA rules only (best-practice rules and `document-title` are left out; SEO-001 reports a missing title). One finding per rule id: axe critical is high, serious is medium, moderate and minor are low. Needs-review results are ignored. If axe fails, the category is not tested.
+- A11Y-001 axe-core violations, run during the page load. WCAG 2.0, 2.1 and 2.2 level A and AA rules only (best-practice rules and `document-title` are left out; SEO-001 reports a missing title). One finding per rule id: axe critical is high, serious is medium, moderate and minor are low, except `target-size` (touch targets under 24px), which is always low. Needs-review results are ignored. If axe fails, the category is not tested.
 
 Performance
-- PERF-001 Lighthouse (mobile preset, performance only, Lighthouse 13 and Node 22.19+). The performance category score IS Lighthouse score (0 to 100), not deductions. Up to 3 tips (estimated savings of at least 300 ms), low severity, informational, never deducted. Runs last and alone. Failure or a 60 s timeout leaves the category not tested. `--no-perf` skips it (also not tested).
+- PERF-001 Lighthouse (mobile preset, performance only, Lighthouse 13 and Node 22.19+). The performance category score IS Lighthouse score (0 to 100), not deductions. Up to 3 tips, low severity, informational, never deducted. **Decision:** a tip needs an estimated saving of at least 300 ms (the largest of FCP, LCP, TBT or INP) and a Lighthouse score under 0.9. Smaller savings are noise: on the good fixture a 150 ms render-blocking stylesheet would otherwise put a tip on an otherwise perfect card. Runs last and alone. Failure or a 60 s timeout leaves the category not tested. `--no-perf` skips it (also not tested).
 
 Launch hygiene
 - HYG-001 Privacy policy link present.

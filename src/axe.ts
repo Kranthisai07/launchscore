@@ -10,9 +10,9 @@ export interface AxeViolation {
 
 export type AxeOutcome = { violations: AxeViolation[] } | { error: string };
 
-// WCAG 2.0 and 2.1, levels A and AA. Best-practice rules are not accessibility failures, and the
-// 2.2 target-size rule flags ordinary adjacent links, so neither is included.
-export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+// WCAG 2.0, 2.1 and 2.2, levels A and AA. Best-practice rules are not accessibility failures, so they
+// are not included. (The 2.2 target-size rule is kept, but A11Y-001 reports it as low severity.)
+export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 const targetText = (target: unknown): string =>
   Array.isArray(target) ? target.map((part) => targetText(part)).join(" ") : String(target ?? "");
