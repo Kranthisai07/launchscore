@@ -1,6 +1,8 @@
+import { AxeBuilder } from "@axe-core/playwright";
+import { AXE_TAGS, summarizeAxe, type AxeOutcome } from "./axe.js";
 import { chromium, type Response } from "playwright";
 import { createFetcher, type PageFetch } from "./fetcher.js";
-import type { NotTested } from "./types.js";
+import type { Category, NotTested } from "./types.js";
 
 export interface PageContext {
   url: string; // as requested
@@ -18,6 +20,10 @@ export interface PageContext {
   fetch: PageFetch;
   // Checks add an entry when they could not look at everything (e.g. a cap was hit); the runner reports them.
   notTested: NotTested[];
+  // Accessibility results from axe, run on the same page load (no second navigation).
+  axe: AxeOutcome;
+  // A check that measures a category directly (PERF-001) puts its 0 to 100 score here.
+  categoryScores: Partial<Record<Category, number>>;
 }
 
 export interface ContextOptions {
@@ -29,6 +35,7 @@ const DEFAULT_MAX_SCRIPT_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MAX_SCRIPTS = 100;
 const NAVIGATION_TIMEOUT_MS = 30_000;
 const IDLE_TIMEOUT_MS = 5_000;
+const AXE_TIMEOUT_MS = 30_000;
 
 export async function buildContext(url: string, options: ContextOptions = {}): Promise<PageContext> {
   const maxScriptBytes = options.maxScriptBytes ?? DEFAULT_MAX_SCRIPT_BYTES;
@@ -36,7 +43,9 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
 
   const browser = await chromium.launch();
   try {
-    const page = await browser.newPage();
+    // axe needs a page that belongs to an explicit browser context.
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
     const consoleErrors: string[] = [];
     page.on("console", (msg) => {
@@ -102,6 +111,20 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
       ),
     ];
 
+    const rawHtml = await main.text();
+    const html = await page.content();
+
+    let axe: AxeOutcome;
+    try {
+      const results = await Promise.race([
+        new AxeBuilder({ page }).withTags(AXE_TAGS).analyze(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("axe timed out")), AXE_TIMEOUT_MS).unref()),
+      ]);
+      axe = summarizeAxe(results);
+    } catch (err) {
+      axe = { error: err instanceof Error ? err.message.split("\n")[0] : String(err) };
+    }
+
     const allowedHosts = new Set([new URL(finalUrl).hostname, ...scriptResponses.map((r) => new URL(r.url()).hostname)]);
 
     return {
@@ -109,14 +132,16 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
       finalUrl,
       status: main.status(),
       headers: Object.fromEntries(Object.entries(main.headers()).map(([k, v]) => [k.toLowerCase(), v])),
-      rawHtml: await main.text(),
-      html: await page.content(),
+      rawHtml,
+      html,
       scripts,
       skippedScripts,
       consoleErrors,
       links,
       fetch: createFetcher({ allowedHosts }),
       notTested: [],
+      axe,
+      categoryScores: {},
     };
   } finally {
     await browser.close();

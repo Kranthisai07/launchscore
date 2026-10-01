@@ -34,6 +34,9 @@ export interface ScoreInput {
   testedCategories: Iterable<Category>;
   // The scan itself was incomplete (a script was skipped or a check crashed).
   incomplete?: boolean;
+  // A category measured directly (performance, from Lighthouse): its 0 to 100 score is used as is and
+  // its findings do not deduct. Ignored for a category that was not tested.
+  directScores?: Partial<Record<Category, number>>;
 }
 
 // Thresholds apply to the rounded total the user sees. `partial` caps the verdict at "ALMOST READY".
@@ -49,6 +52,8 @@ export function computeScore(input: ScoreInput): ScoreResult {
 
   const categories: CategoryScore[] = CATEGORY_ORDER.map((name) => {
     if (!tested.has(name)) return { name, score: null, tested: false };
+    const direct = input.directScores?.[name];
+    if (direct !== undefined) return { name, score: Math.min(100, Math.max(0, Math.round(direct))), tested: true };
     const deducted = input.findings
       .filter((f) => f.category === name)
       .reduce((sum, f) => sum + DEDUCTIONS[f.severity], 0);

@@ -10,9 +10,13 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     .version("0.1.0")
     .argument("<url>", "URL to scan")
     .option("-o, --out <dir>", "folder to write the report into", ".")
-    .action(async (url: string, opts: { out: string }) => {
+    .option("--no-perf", "skip the performance test (it is slow on big sites)")
+    .action(async (url: string, opts: { out: string; perf: boolean }) => {
       try {
-        const summary = await scanAndWrite(url, opts.out);
+        const summary = await scanAndWrite(url, opts.out, {
+          skipPerformance: !opts.perf,
+          onStatus: (message) => console.error(message),
+        });
         console.log(`Score: ${summary.score === null ? "not scored" : `${summary.score}/100`} (${summary.verdict})`);
         if (summary.partial) {
           const missing = summary.untestedCategories.length ? `not tested: ${summary.untestedCategories.join(", ")}` : "some checks or scripts were skipped";

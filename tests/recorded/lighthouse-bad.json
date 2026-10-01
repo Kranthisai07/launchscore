@@ -1,0 +1,256 @@
+{
+  "score": 0.57,
+  "audits": [
+    {
+      "id": "server-response-time",
+      "title": "Initial server response time was short",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "redirects",
+      "title": "Avoid multiple page redirects",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "LCP": 0,
+        "FCP": 0
+      }
+    },
+    {
+      "id": "mainthread-work-breakdown",
+      "title": "Minimizes main-thread work",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "TBT": 50
+      }
+    },
+    {
+      "id": "bootup-time",
+      "title": "JavaScript execution time",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "TBT": 50
+      }
+    },
+    {
+      "id": "layout-shifts",
+      "title": "Avoid large layout shifts",
+      "score": null,
+      "scoreDisplayMode": "notApplicable",
+      "metricSavings": {
+        "CLS": 0
+      }
+    },
+    {
+      "id": "long-tasks",
+      "title": "Avoid long main-thread tasks",
+      "score": 1,
+      "scoreDisplayMode": "informative",
+      "metricSavings": {
+        "TBT": 50
+      }
+    },
+    {
+      "id": "non-composited-animations",
+      "title": "Avoid non-composited animations",
+      "score": null,
+      "scoreDisplayMode": "notApplicable",
+      "metricSavings": {
+        "CLS": 0
+      }
+    },
+    {
+      "id": "unsized-images",
+      "title": "Image elements have explicit `width` and `height`",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "CLS": 0
+      }
+    },
+    {
+      "id": "unminified-css",
+      "title": "Minify CSS",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      },
+      "overallSavingsBytes": 0
+    },
+    {
+      "id": "unminified-javascript",
+      "title": "Minify JavaScript",
+      "score": 0,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 7350,
+        "LCP": 8050
+      },
+      "overallSavingsBytes": 1495102
+    },
+    {
+      "id": "unused-css-rules",
+      "title": "Reduce unused CSS",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      },
+      "overallSavingsBytes": 0
+    },
+    {
+      "id": "unused-javascript",
+      "title": "Reduce unused JavaScript",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      },
+      "overallSavingsBytes": 0
+    },
+    {
+      "id": "cache-insight",
+      "title": "Use efficient cache lifetimes",
+      "score": 0,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 7350,
+        "LCP": 15450
+      }
+    },
+    {
+      "id": "cls-culprits-insight",
+      "title": "Layout shift culprits",
+      "score": 1,
+      "scoreDisplayMode": "numeric",
+      "metricSavings": {
+        "CLS": 0
+      }
+    },
+    {
+      "id": "document-latency-insight",
+      "title": "Document request latency",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "dom-size-insight",
+      "title": "Optimize DOM size",
+      "score": 1,
+      "scoreDisplayMode": "numeric",
+      "metricSavings": {
+        "INP": 0
+      }
+    },
+    {
+      "id": "duplicated-javascript-insight",
+      "title": "Duplicated JavaScript",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "font-display-insight",
+      "title": "Font display",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "INP": 0
+      }
+    },
+    {
+      "id": "image-delivery-insight",
+      "title": "Improve image delivery",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "lcp-breakdown-insight",
+      "title": "LCP breakdown",
+      "score": 1,
+      "scoreDisplayMode": "informative",
+      "metricSavings": {
+        "LCP": 0
+      }
+    },
+    {
+      "id": "lcp-discovery-insight",
+      "title": "LCP request discovery",
+      "score": 0,
+      "scoreDisplayMode": "numeric",
+      "metricSavings": {
+        "LCP": 0
+      }
+    },
+    {
+      "id": "legacy-javascript-insight",
+      "title": "Legacy JavaScript",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "modern-http-insight",
+      "title": "Modern HTTP",
+      "score": 1,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 0,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "network-dependency-tree-insight",
+      "title": "Network dependency tree",
+      "score": 0,
+      "scoreDisplayMode": "numeric",
+      "metricSavings": {
+        "LCP": 0
+      }
+    },
+    {
+      "id": "render-blocking-insight",
+      "title": "Render-blocking requests",
+      "score": 0,
+      "scoreDisplayMode": "metricSavings",
+      "metricSavings": {
+        "FCP": 7750,
+        "LCP": 0
+      }
+    },
+    {
+      "id": "viewport-insight",
+      "title": "Optimize viewport for mobile",
+      "score": 1,
+      "scoreDisplayMode": "numeric",
+      "metricSavings": {
+        "INP": 0
+      }
+    }
+  ]
+}

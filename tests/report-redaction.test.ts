@@ -10,7 +10,7 @@ let json: string;
 
 beforeAll(async () => {
   bad = await startFixtureServer("bad");
-  json = JSON.stringify(buildReport(await runScan(bad.url + "/")), null, 2);
+  json = JSON.stringify(buildReport(await runScan(bad.url + "/", { skipPerformance: true })), null, 2);
 });
 
 afterAll(async () => {

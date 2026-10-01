@@ -187,7 +187,7 @@ describe("renderCards", () => {
   beforeAll(async () => {
     dir = await mkdtemp(path.join(os.tmpdir(), "launchscore-card-"));
     bad = await startFixtureServer("bad");
-    badReport = buildReport(await runScan(bad.url + "/"));
+    badReport = buildReport(await runScan(bad.url + "/", { skipPerformance: true }));
     files = await renderCards(badReport, dir);
   });
 
@@ -213,7 +213,7 @@ describe("renderCards", () => {
   });
 
   it("the bad fixture's card HTML contains no evidence strings and no secret", () => {
-    expect(badReport.findings.length).toBe(20);
+    expect(badReport.findings.length).toBe(23);
     for (const size of ["landscape", "square"] as const) {
       const html = cardHtml(toCardData(badReport), size);
       for (const f of badReport.findings) expect(html, f.evidence).not.toContain(f.evidence);
@@ -231,6 +231,6 @@ describe("renderCards", () => {
     const html = cardHtml(toCardData(badReport), "landscape");
     expect(html).toContain("--accent:#FF2A2A");
     expect(html).toContain("BLOCKED: CRITICAL ISSUE");
-    expect(html).toContain(">9<");
+    expect(html).toContain(">11<");
   });
 });

@@ -18,6 +18,8 @@ export function makeContext(overrides: Partial<PageContext> = {}): PageContext {
     links: [],
     fetch: async () => null, // unit tests never touch the network
     notTested: [],
+    axe: { violations: [] },
+    categoryScores: {},
     ...overrides,
   };
 }

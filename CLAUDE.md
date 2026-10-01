@@ -3,7 +3,7 @@
 Read SPEC.md and PLAN.md before any work. Work only on the next unchecked milestone in PLAN.md unless told otherwise. Use plan mode first, then implement, then run tests, then check the box and commit.
 
 ## Stack
-- Node 20+, TypeScript (strict), pnpm
+- Node 22.19+ (Lighthouse 13 requires it), TypeScript (strict), pnpm
 - CLI: commander. Build: tsup. Tests: vitest
 - Browser: playwright (chromium). A11y: @axe-core/playwright. Perf: lighthouse
 - Validation: zod for the report schema

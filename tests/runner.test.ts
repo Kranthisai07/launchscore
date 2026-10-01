@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startFixtureServer, type FixtureServer } from "../fixtures/server.js";
+import type { PageContext } from "../src/context.js";
 import { MAX_CONCURRENT_CHECKS, runScan } from "../src/runner.js";
 import { checks as registry } from "../src/checks/index.js";
-import type { Check } from "../src/types.js";
+import type { Check, Finding } from "../src/types.js";
 
 // Test-only checks. Nothing here ships in the registry.
 const loremCheck: Check = {
@@ -58,29 +59,33 @@ afterAll(async () => {
   await Promise.all([good.close(), bad.close()]);
 });
 
-describe("runScan with the real registry", () => {
-  it("runs the eleven checks: good is clean, bad has 20 findings and a score", async () => {
+describe("runScan with the real registry (Lighthouse skipped)", () => {
+  const SKIPPED = { checkId: "PERF-001", title: "Performance", reason: "skipped (--no-perf)" };
+
+  it("runs thirteen checks: good is clean, bad has 23 findings and a score", async () => {
     expect(registry.map((c) => c.id)).toEqual([
-      "SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "HYG-003",
+      "SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005",
+      "A11Y-001", "PERF-001", "HYG-003",
     ]);
 
-    const onGood = await runScan(good.url + "/");
-    expect(onGood).toMatchObject({ findings: [], notTested: [], checksRun: 11, verified: false });
+    const onGood = await runScan(good.url + "/", { skipPerformance: true });
+    expect(onGood).toMatchObject({ findings: [], notTested: [SKIPPED], checksRun: 12, verified: false });
     expect(onGood.detected.map((d) => [d.stack, d.url])).toEqual([["supabase", "fakeproject.supabase.co"]]);
-    expect(onGood.score).toMatchObject({ score: 100, verdict: "ALMOST READY", partial: true }); // accessibility and performance untested
+    expect(onGood.score).toMatchObject({ score: 100, verdict: "ALMOST READY", partial: true }); // performance untested
 
-    const onBad = await runScan(bad.url + "/");
-    expect(onBad).toMatchObject({ notTested: [], checksRun: 11 });
+    const onBad = await runScan(bad.url + "/", { skipPerformance: true });
+    expect(onBad).toMatchObject({ notTested: [SKIPPED], checksRun: 12 });
     expect(onBad.detected.map((d) => d.stack)).toEqual(["supabase"]);
     const counts: Record<string, number> = {};
     for (const f of onBad.findings) counts[f.checkId] = (counts[f.checkId] ?? 0) + 1;
     expect(counts).toEqual({
-      "SEC-001": 2, "SEC-002": 1, "SEC-003": 4, "SEO-001": 2, "SEO-002": 2, "SEO-003": 2, "SEO-004": 1, "SEO-005": 2, "HYG-003": 4,
+      "SEC-001": 2, "SEC-002": 1, "SEC-003": 4, "SEO-001": 2, "SEO-002": 2, "SEO-003": 2, "SEO-004": 1, "SEO-005": 2,
+      "A11Y-001": 3, "HYG-003": 4,
     });
-    expect(onBad.findings).toHaveLength(20);
-    // security 0, seo 0 (115 points of deductions), hygiene 40: (0*40 + 0*15 + 40*15) / 70 = 8.6
-    expect(onBad.score).toMatchObject({ score: 9, verdict: "BLOCKED: CRITICAL ISSUE", partial: true });
-    expect(onBad.score.categories.map((c) => c.score)).toEqual([0, 0, null, null, 40]);
+    expect(onBad.findings).toHaveLength(23);
+    // security 0, seo 0, accessibility 25 (two high, one medium), hygiene 40: (0 + 0 + 25*15 + 40*15) / 85 = 11.5
+    expect(onBad.score).toMatchObject({ score: 11, verdict: "BLOCKED: CRITICAL ISSUE", partial: true });
+    expect(onBad.score.categories.map((c) => c.score)).toEqual([0, 0, 25, null, 40]);
   });
 });
 
@@ -94,7 +99,7 @@ describe("runScan with test checks", () => {
   });
 
   it("reports the final URL and a timestamp", async () => {
-    const result = await runScan(good.url + "/");
+    const result = await runScan(good.url + "/", { skipPerformance: true });
     expect(result.url).toBe(good.url + "/");
     expect(Number.isNaN(Date.parse(result.scannedAt))).toBe(false);
   });
@@ -207,8 +212,9 @@ describe("active-check gating", () => {
 
 describe("skipped scripts", () => {
   it("adds a 'scripts not scanned' entry so a skipped bundle never reads as clean", async () => {
-    const result = await runScan(good.url + "/", { context: { maxScriptBytes: 10 } });
+    const result = await runScan(good.url + "/", { context: { maxScriptBytes: 10 }, skipPerformance: true });
     expect(result.notTested).toEqual([
+      { checkId: "PERF-001", title: "Performance", reason: "skipped (--no-perf)" },
       { checkId: "CONTEXT", title: "JavaScript files not scanned", reason: "scripts not scanned: 1 file(s)" },
     ]);
   });
@@ -306,5 +312,90 @@ describe("notTested entries added by checks", () => {
     const result = await runScan(good.url + "/", { checks: [...fiveCategories(), adds] });
     expect(result.notTested).toEqual([{ checkId: "T-ADD", title: "Adds an entry", reason: "3 things not checked (limit 20)" }]);
     expect(result.score).toMatchObject({ verdict: "READY TO LAUNCH", partial: false });
+  });
+});
+
+describe("performance checks in the runner", () => {
+  const perf = (id: string, body: (ctx: PageContext) => Promise<Finding[]>): Check => ({
+    id, title: id, category: "performance", mode: "passive", run: body,
+  });
+
+  it("runs after every other check has finished, and alone", async () => {
+    let quickInFlight = 0;
+    let quickDone = 0;
+    let perfSawInFlight = -1;
+    let perfSawDone = -1;
+    const quick = (n: number): Check =>
+      passive(`Q-${n}`, "security", async () => {
+        quickInFlight++;
+        await new Promise((r) => setTimeout(r, 30));
+        quickInFlight--;
+        quickDone++;
+        return [];
+      });
+    const slow = perf("P-1", async () => {
+      perfSawInFlight = quickInFlight;
+      perfSawDone = quickDone;
+      return [];
+    });
+    // The slow check is listed first, but must still run last.
+    await runScan(good.url + "/", { checks: [slow, quick(1), quick(2), quick(3)] });
+    expect(perfSawInFlight).toBe(0);
+    expect(perfSawDone).toBe(3);
+  });
+
+  it("runs several performance checks one at a time", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const make = (id: string) =>
+      perf(id, async () => {
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 20));
+        inFlight--;
+        return [];
+      });
+    await runScan(good.url + "/", { checks: [make("P-1"), make("P-2"), make("P-3")] });
+    expect(peak).toBe(1);
+  });
+
+  it("uses the score a check puts in ctx.categoryScores, and ignores that category's findings for deductions", async () => {
+    const measured = perf("P-1", async (ctx) => {
+      ctx.categoryScores.performance = 62;
+      return [{ checkId: "P-1", severity: "high", title: "t", why: "w", evidence: "", fix: "f" }];
+    });
+    const result = await runScan(good.url + "/", { checks: [...fiveCategories().filter((c) => c.category !== "performance"), measured] });
+    expect(result.score.categories.find((c) => c.name === "performance")).toEqual({ name: "performance", score: 62, tested: true });
+    expect(result.findings).toHaveLength(1); // still reported, just not deducted
+  });
+
+  it("leaves performance untested, and records why, when the check fails", async () => {
+    const failing = perf("P-1", async () => {
+      throw new Error("Lighthouse timed out after 60 s");
+    });
+    const result = await runScan(good.url + "/", { checks: [...fiveCategories().filter((c) => c.category !== "performance"), failing] });
+    expect(result.score.categories.find((c) => c.name === "performance")).toEqual({ name: "performance", score: null, tested: false });
+    expect(result.notTested).toEqual([{ checkId: "P-1", title: "P-1", reason: "check failed: Lighthouse timed out after 60 s" }]);
+    expect(result.score.partial).toBe(true);
+  });
+
+  it("skips performance checks when asked, records that, and reports a status message otherwise", async () => {
+    const ran: string[] = [];
+    const measured = perf("P-1", async () => {
+      ran.push("P-1");
+      return [];
+    });
+    const skipped = await runScan(good.url + "/", { checks: [measured], skipPerformance: true });
+    expect(ran).toEqual([]);
+    expect(skipped.notTested).toEqual([{ checkId: "P-1", title: "P-1", reason: "skipped (--no-perf)" }]);
+
+    const messages: string[] = [];
+    await runScan(good.url + "/", { checks: [passive("Q", "security"), measured], onStatus: (m) => messages.push(m) });
+    expect(ran).toEqual(["P-1"]);
+    expect(messages).toEqual([expect.stringContaining("Lighthouse")]);
+
+    const quiet: string[] = [];
+    await runScan(good.url + "/", { checks: [passive("Q", "security")], onStatus: (m) => quiet.push(m) });
+    expect(quiet).toEqual([]);
   });
 });

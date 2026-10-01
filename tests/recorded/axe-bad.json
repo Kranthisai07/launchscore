@@ -1,0 +1,61 @@
+{
+  "violations": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            ".muted"
+          ],
+          "html": "<p class=\"muted\">Consectetur adipiscing elit, sed do eiusmod tempor incididunt.</p>"
+        }
+      ]
+    },
+    {
+      "id": "document-title",
+      "impact": "serious",
+      "help": "Documents must have <title> element to aid in navigation",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/document-title?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            "html"
+          ],
+          "html": "<html lang=\"en\" data-ready=\"true\">"
+        }
+      ]
+    },
+    {
+      "id": "image-alt",
+      "impact": "critical",
+      "help": "Images must have alternative text",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/image-alt?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            "img"
+          ],
+          "html": "<img src=\"/hero.svg\" width=\"600\" height=\"400\">"
+        }
+      ]
+    },
+    {
+      "id": "label",
+      "impact": "critical",
+      "help": "Form elements must have labels",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/label?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            "input"
+          ],
+          "html": "<input name=\"email\" type=\"text\">"
+        }
+      ]
+    }
+  ],
+  "incomplete": []
+}

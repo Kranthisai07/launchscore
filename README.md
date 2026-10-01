@@ -4,7 +4,7 @@ Paste your URL. Find out if your vibe-coded app will get you hacked, sued, or ig
 
 ## Setup
 
-launchscore loads your site in a real browser (Chromium). Install it once:
+launchscore needs Node 22.19 or newer. It loads your site in a real browser (Chromium); install that once:
 
 ```
 npx playwright install chromium
@@ -16,6 +16,8 @@ npx playwright install chromium
 npx launchscore https://mysite.com
 ```
 
+The scan takes about 15 to 30 seconds, most of it the speed test. Add `--no-perf` to skip the speed test (it is slow on big sites); performance then shows as not tested.
+
 This writes three files into the current folder (use `-o <folder>` to write them somewhere else):
 
 - `launchscore-report.json`: the full report, including the score and every finding.
@@ -26,7 +28,7 @@ The score is out of 100. A critical issue blocks the launch no matter what else 
 
 To try it without a real site, start a test site with `pnpm fixture good` (a clean site) or `pnpm fixture bad` (a site with planted problems). It prints a local address; scan that address, and press Ctrl+C to stop.
 
-Work in progress: checks are being added milestone by milestone, so accessibility and performance are not tested yet.
+Work in progress: checks are being added milestone by milestone. Launch checks for links, favicon and console errors are still to come.
 
 ## Third-party fonts
 

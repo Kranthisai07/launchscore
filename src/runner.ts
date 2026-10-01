@@ -10,6 +10,10 @@ export interface RunOptions {
   checks?: Check[];
   verify?: (url: string) => Promise<boolean>;
   context?: ContextOptions;
+  // Skip the performance category (Lighthouse is slow on big sites). Recorded as not tested.
+  skipPerformance?: boolean;
+  // Progress messages for slow steps, so a CLI can tell the user what it is waiting for.
+  onStatus?: (message: string) => void;
 }
 
 export interface ScanResult {
@@ -62,7 +66,7 @@ async function runCheck(check: Check, ctx: PageContext): Promise<CheckOutcome> {
 }
 
 export async function runScan(url: string, options: RunOptions = {}): Promise<ScanResult> {
-  const { checks = registry, verify = isVerified, context } = options;
+  const { checks = registry, verify = isVerified, context, skipPerformance = false, onStatus } = options;
   const ctx = await buildContext(url, context);
 
   const notTested: NotTested[] = [];
@@ -72,7 +76,9 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
   const verified = redirectedAway ? false : await verify(ctx.finalUrl);
 
   for (const check of checks) {
-    if (check.mode === "passive" || verified) {
+    if (skipPerformance && check.category === "performance") {
+      notTested.push({ checkId: check.id, title: check.title, reason: "skipped (--no-perf)" });
+    } else if (check.mode === "passive" || verified) {
       toRun.push(check);
     } else {
       notTested.push({
@@ -83,7 +89,12 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
     }
   }
 
-  const outcomes = await mapWithLimit(toRun, MAX_CONCURRENT_CHECKS, (check) => runCheck(check, ctx));
+  // Performance is measured last and alone: other work running at the same time would distort it.
+  const quick = toRun.filter((check) => check.category !== "performance");
+  const slow = toRun.filter((check) => check.category === "performance");
+  const outcomes = await mapWithLimit(quick, MAX_CONCURRENT_CHECKS, (check) => runCheck(check, ctx));
+  if (slow.length > 0) onStatus?.("Measuring performance with Lighthouse (about 30 seconds)...");
+  for (const check of slow) outcomes.push(await runCheck(check, ctx));
 
   if (ctx.skippedScripts.length > 0) {
     notTested.push({
@@ -98,6 +109,7 @@ export async function runScan(url: string, options: RunOptions = {}): Promise<Sc
   const score = computeScore({
     findings: completed.flatMap((o) => o.findings.map((f) => ({ category: o.check.category, severity: f.severity }))),
     testedCategories: completed.map((o) => o.check.category),
+    directScores: ctx.categoryScores,
     incomplete: outcomes.some((o) => o.notTested) || ctx.skippedScripts.length > 0,
   });
 

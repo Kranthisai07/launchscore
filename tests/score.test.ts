@@ -162,3 +162,40 @@ describe("partial scans cap the verdict at ALMOST READY", () => {
     ).toBe("NEEDS WORK");
   });
 });
+
+describe("direct category scores (performance from Lighthouse)", () => {
+  it("uses the direct score instead of deductions, and ignores findings in that category", () => {
+    const result = score({
+      directScores: { performance: 62 },
+      findings: [f("performance", "low"), f("performance", "high"), f("seo", "medium")],
+    });
+    expect(byName(result, "performance")).toEqual({ name: "performance", score: 62, tested: true });
+    expect(byName(result, "seo").score).toBe(85); // other categories still deduct
+  });
+
+  it("weights it like any other tested category (15) in the total", () => {
+    // security 100 (40) + performance 40 (15) over 55 = (4000 + 600) / 55 = 83.6
+    const result = score({ testedCategories: ["security", "performance"], directScores: { performance: 40 } });
+    expect(result.score).toBe(84);
+  });
+
+  it("rounds and clamps", () => {
+    expect(byName(score({ directScores: { performance: 61.6 } }), "performance").score).toBe(62);
+    expect(byName(score({ directScores: { performance: 140 } }), "performance").score).toBe(100);
+    expect(byName(score({ directScores: { performance: -5 } }), "performance").score).toBe(0);
+  });
+
+  it("is ignored when the category was not tested: it stays null, never a number", () => {
+    const result = score({ testedCategories: ["security"], directScores: { performance: 90 } });
+    expect(byName(result, "performance")).toEqual({ name: "performance", score: null, tested: false });
+  });
+
+  it("does not stop a critical finding elsewhere from capping the total", () => {
+    const result = score({ directScores: { performance: 100 }, findings: [f("security", "critical")] });
+    expect(result).toMatchObject({ score: 49, verdict: "BLOCKED: CRITICAL ISSUE" });
+  });
+
+  it("allows READY TO LAUNCH when all five categories are tested and complete", () => {
+    expect(score({ directScores: { performance: 96 } })).toMatchObject({ verdict: "READY TO LAUNCH", partial: false });
+  });
+});

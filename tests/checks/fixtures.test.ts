@@ -9,7 +9,8 @@ let bad: FixtureServer;
 let goodCtx: PageContext;
 let badCtx: PageContext;
 
-const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "HYG-003"];
+// PERF-001 runs Lighthouse and has its own integration test (tests/lighthouse.integration.test.ts).
+const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "A11Y-001", "HYG-003"];
 
 beforeAll(async () => {
   [good, bad] = await Promise.all([startFixtureServer("good"), startFixtureServer("bad")]);
@@ -30,8 +31,8 @@ const detectionsFor = async (id: string, ctx: PageContext): Promise<Detection[]>
 const severities = (findings: Finding[]) => findings.map((f) => f.severity);
 
 describe("registry", () => {
-  it("has the eleven checks, in ID order", () => {
-    expect(checks.map((c) => c.id)).toEqual(IDS);
+  it("has the thirteen checks", () => {
+    expect(checks.map((c) => c.id)).toEqual([...IDS.slice(0, 11), "PERF-001", "HYG-003"]);
     expect(checks.every((c) => c.mode === "passive")).toBe(true);
   });
 });
@@ -119,6 +120,16 @@ describe("bad fixture triggers exactly the planted findings", () => {
     expect(severities(findings)).toEqual(["low", "low"]);
     expect(findings[0].title).toContain("h1");
     expect(findings[1].title).toContain("canonical");
+  });
+
+  it("A11Y-001: image without alt and input without a label (high), faint text (medium)", async () => {
+    const findings = await findingsFor("A11Y-001", badCtx);
+    expect(findings.map((f) => [f.severity, f.title])).toEqual([
+      ["medium", "Some text is too faint to read easily (low color contrast)"],
+      ["high", "Some images have no text description (alt text)"],
+      ["high", "Some form fields have no label"],
+    ]);
+    expect(findings.map((f) => f.evidence)).toEqual(["1 element, first: .muted", "1 element, first: img", "1 element, first: input"]);
   });
 
   it("HYG-003: lorem ipsum, Your Company, John Doe, example.com email", async () => {

@@ -93,3 +93,18 @@ describe("navigation failures", () => {
     await expect(buildContext("http://127.0.0.1:1/")).rejects.toThrow(/Could not load/);
   });
 });
+
+describe("axe results on the page context", () => {
+  it("good fixture: axe ran during the same load and found nothing (even with a strict CSP)", () => {
+    expect(goodCtx.axe).toEqual({ violations: [] });
+  });
+
+  it("bad fixture: axe found the planted problems, with counts and a selector but no HTML", () => {
+    expect("violations" in badCtx.axe ? badCtx.axe.violations.map((v) => [v.id, v.impact, v.nodes, v.firstTarget]) : []).toEqual([
+      ["color-contrast", "serious", 1, ".muted"],
+      ["document-title", "serious", 1, "html"],
+      ["image-alt", "critical", 1, "img"],
+      ["label", "critical", 1, "input"],
+    ]);
+  });
+});
