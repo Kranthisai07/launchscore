@@ -59,12 +59,17 @@ afterAll(async () => {
 });
 
 describe("runScan with the real registry", () => {
-  it("is empty for now and reports nothing on either fixture", async () => {
-    expect(registry).toEqual([]);
-    for (const server of [good, bad]) {
-      const result = await runScan(server.url + "/");
-      expect(result).toMatchObject({ findings: [], detected: [], notTested: [], checksRun: 0 });
-    }
+  it("runs the five M4 checks: good is clean, bad has 12 findings", async () => {
+    expect(registry.map((c) => c.id)).toEqual(["SEC-001", "SEC-003", "SEC-004", "SEO-001", "HYG-003"]);
+
+    const onGood = await runScan(good.url + "/");
+    expect(onGood).toMatchObject({ findings: [], detected: [], notTested: [], checksRun: 5 });
+
+    const onBad = await runScan(bad.url + "/");
+    expect(onBad).toMatchObject({ detected: [], notTested: [], checksRun: 5 });
+    const counts: Record<string, number> = {};
+    for (const f of onBad.findings) counts[f.checkId] = (counts[f.checkId] ?? 0) + 1;
+    expect(counts).toEqual({ "SEC-001": 2, "SEC-003": 4, "SEO-001": 2, "HYG-003": 4 });
   });
 });
 

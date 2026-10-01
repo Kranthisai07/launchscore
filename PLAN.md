@@ -6,10 +6,10 @@ One milestone per Claude Code session. Commit after each. Check boxes as you go.
 - [x] M1 Scaffold: TypeScript CLI, `launchscore <url>` prints "ok". Vitest running. CI on push.
 - [x] M2 Fixture sites: `fixtures/good` (must produce zero findings) and `fixtures/bad` (one planted issue per passive check, see `fixtures/bad/MANIFEST.md`). Local server for tests. SEC-004 is not in the fixtures (localhost has no TLS), so it gets unit tests in M4. SEC-006 and SEC-007 are deferred to M12.
 - [x] M3 Check registry + runner: check interface, page context (HTML, headers, loaded JS bundles via Playwright), JSON report writer.
-- [ ] M4 First 5 checks: SEC-001, SEC-003, SEC-004, SEO-001, HYG-003. Tests against both fixtures. SEC-004 is tested with unit tests (no TLS on localhost).
+- [x] M4 First 5 checks: SEC-001, SEC-003, SEC-004, SEO-001, HYG-003. Tests against both fixtures. SEC-004 is tested with unit tests (no TLS on localhost).
 - [ ] M5 Scoring + share card PNG (HTML template screenshotted by Playwright).
 
-Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a red card and JSON with 5 findings; good fixture outputs zero.
+Done when: `npx launchscore http://localhost:xxxx` on the bad fixture outputs a red card and JSON with 12 findings (SEC-001 x2, SEC-003 x4, SEO-001 x2, HYG-003 x4; SEC-004 cannot trigger on localhost); good fixture outputs zero.
 
 ## Week 2: remaining passive checks + HTML report
 - [ ] M6 SEC-002, SEC-005, SEO-002 to SEO-005.

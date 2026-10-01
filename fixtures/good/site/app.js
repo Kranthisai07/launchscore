@@ -4,6 +4,7 @@
   var config = {
     stripePublishableKey: "{{STRIPE_PK_TEST}}",
     supabaseAnonKey: "{{SUPABASE_ANON_JWT}}",
+    supabasePublishableKey: "{{SUPABASE_PUBLISHABLE_KEY}}",
     supabaseUrl: "{{SUPABASE_URL}}",
   };
   document.documentElement.setAttribute("data-ready", String(Boolean(config.stripePublishableKey)));

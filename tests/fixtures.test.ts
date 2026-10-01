@@ -104,12 +104,15 @@ describe("detections (not findings)", () => {
 
 describe("repo hygiene", () => {
   it("no full fake key literal is committed under fixtures/", () => {
-    const literal = /\b(?:sk_live_|pk_test_)[A-Za-z0-9]{8,}|eyJ[\w-]{10,}\.eyJ[\w-]{10,}/;
+    const literal =
+      /(?<![A-Za-z0-9_])(?:(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{8,}|sk-(?:proj-|ant-|admin-)[A-Za-z0-9_-]{8,}|sk-[A-Za-z0-9]{40,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sb_(?:secret|publishable)_[A-Za-z0-9_-]{8,})|eyJ[\w-]{10,}\.eyJ[\w-]{10,}/;
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
         e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)],
       );
-    for (const file of walk(fixturesDir).filter((f) => !f.endsWith(".png"))) {
+    // fixtures, source and tests: every fake key must be assembled from fragments at run time
+    const roots = [fixturesDir, path.join(fixturesDir, "..", "src"), path.join(fixturesDir, "..", "tests")];
+    for (const file of roots.flatMap(walk).filter((f) => !f.endsWith(".png"))) {
       expect(readFileSync(file, "utf8"), file).not.toMatch(literal);
     }
   });
