@@ -1,3 +1,4 @@
+import { isUnderHostingSuffix } from "../data/hosting-suffixes.js";
 import { isHstsPreloadedTld } from "../data/hsts-preloaded-tlds.js";
 import type { FetchResult } from "../fetcher.js";
 import type { Check } from "../types.js";
@@ -46,6 +47,11 @@ export const sec004: Check = {
     const res = await ctx.fetch(httpUrl, { followRedirects: false });
     if (res === null) return []; // refusing plain http is fine, and a failed request is not proof of a problem
     if (redirectsToHttps(res, httpUrl)) return [];
+    // On a shared hosting platform (bolt.host, lovable.app, ...) the site owner usually has no redirect setting to
+    // turn on: the platform decides, so the advice is different.
+    const fix = isUnderHostingSuffix(final.hostname)
+      ? `Your host (${final.hostname}) serves the http:// address without sending visitors to https://. Check the https setting in your host's dashboard, or connect your own domain and turn on https there.`
+      : "In your hosting settings, turn on the option that redirects http:// visitors to https://.";
     return [
       {
         checkId: "SEC-004",
@@ -53,7 +59,7 @@ export const sec004: Check = {
         title: "Visitors who type your address without https are not sent to the secure version",
         why: "People using the plain http:// address stay on an unprotected connection.",
         evidence: `${httpUrl} answered with status ${res.status} and no redirect to https`,
-        fix: "In your hosting settings, turn on the option that redirects http:// visitors to https://.",
+        fix,
       },
     ];
   },

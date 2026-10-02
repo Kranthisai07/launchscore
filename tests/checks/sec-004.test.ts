@@ -99,3 +99,28 @@ describe("SEC-004: the http:// version of an https site", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe("SEC-004: advice on a shared hosting platform", () => {
+  it.each(["https://uds.bolt.host/", "https://x.onrender.com/", "https://x.github.io/", "https://x.herokuapp.com/"])(
+    "%s: says the host serves http without redirecting and points at the host's https setting or a custom domain",
+    async (url) => {
+      const findings = await run({ url, fetch: mockFetch(reply(200)) });
+      expect(findings).toHaveLength(1);
+      const fix = findings[0].fix;
+      expect(fix).toContain(`Your host (${new URL(url).hostname}) serves the http:// address without sending visitors to https://`);
+      expect(fix).toContain("Check the https setting in your host's dashboard");
+      expect(fix).toContain("connect your own domain");
+      expect(fix).not.toMatch(/turn on the option that redirects/i);
+    },
+  );
+
+  it("keeps the 'turn on the redirect' advice on an ordinary host", async () => {
+    const [finding] = await run({ url: "https://shop.com/", fetch: mockFetch(reply(200)) });
+    expect(finding.fix).toBe("In your hosting settings, turn on the option that redirects http:// visitors to https://.");
+  });
+
+  it("uses the same platform wording when the redirect points at another http address", async () => {
+    const [finding] = await run({ url: "https://uds.bolt.host/", fetch: mockFetch(reply(301, "http://uds.bolt.host/home")) });
+    expect(finding.fix).toContain("connect your own domain");
+  });
+});

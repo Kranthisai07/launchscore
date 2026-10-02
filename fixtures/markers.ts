@@ -53,8 +53,9 @@ export const MARKERS: Record<string, Marker> = {
   "SEO-005": async (get) => {
     const { body } = await get("/");
     const noH1 = !/<h1[\s>]/i.test(body); // several h1s are allowed, only none is planted
-    return noH1 || !/<link[^>]+rel="canonical"/i.test(body);
+    return noH1 || /<link[^>]+rel="canonical"[^>]+href="https?:\/\/(?:www\.)?yourwebsite\.com/i.test(body);
   },
+  "SEO-006": async (get) => /<meta[^>]+name="twitter:site"[^>]+content="@Lovable"/i.test((await get("/")).body),
   "A11Y-001": async (get) => {
     const { body } = await get("/");
     const imgWithoutAlt = /<img(?![^>]*\balt=)[^>]*>/i.test(body);
@@ -69,7 +70,7 @@ export const MARKERS: Record<string, Marker> = {
   "HYG-001": async (get) => !/<a\b[^>]*href="[^"]*privacy/i.test((await get("/")).body),
   "HYG-002": async (get) => !/<a\b[^>]*href="[^"]*terms/i.test((await get("/")).body),
   "HYG-003": async (get) =>
-    /lorem ipsum|your company|john doe|@example\.com/i.test((await get("/")).body),
+    /lorem ipsum|your company|john doe|@example\.com|your name or company name/i.test((await get("/")).body),
   "HYG-004": async (get) =>
     /<link[^>]+rel="icon"[^>]+href="[^"]*vite\.svg"/i.test((await get("/")).body),
   "HYG-005": async (get) => /\bundefinedWidget\.init\(\)/.test((await get("/app.js")).body),

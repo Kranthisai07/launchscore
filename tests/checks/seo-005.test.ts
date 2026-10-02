@@ -70,3 +70,45 @@ describe("SEO-005 canonical", () => {
     expect(findings.map((f) => f.severity)).toEqual(["low", "low"]);
   });
 });
+
+describe("SEO-005 canonical on a different site", () => {
+  const runAt = (url: string, canonical: string) =>
+    seo005.run(makeContext({ url, html: page(`<link rel="canonical" href="${canonical}">`, "<h1>Hi</h1>") }));
+
+  it("reports a template canonical (yourwebsite.com) as medium, with both hosts in the evidence", async () => {
+    const findings = await runAt("https://syntro-astro.vercel.app/", "https://www.yourwebsite.com/");
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ checkId: "SEO-005", severity: "medium" });
+    expect(findings[0].evidence).toBe("Canonical is https://www.yourwebsite.com/ but the page is on syntro-astro.vercel.app");
+  });
+
+  it.each([
+    ["a Lovable preview address on another Lovable site (lovify)", "https://lovify.lovable.app/", "https://preview--retro-terminal-blocks.lovable.app"],
+    ["a custom domain pointing at a platform preview", "https://shop.com/", "https://shop-preview.lovable.app/"],
+    ["a different custom domain", "https://shop.com/", "https://other-brand.com/"],
+    ["example.com", "https://shop.com/", "https://example.com/"],
+    ["one platform host pointing at another platform", "https://a.bolt.host/", "https://b.vercel.app/"],
+  ])("reports %s", async (_name, url, canonical) => {
+    const findings = await runAt(url, canonical);
+    expect(findings.map((f) => f.severity)).toEqual(["medium"]);
+  });
+
+  it.each([
+    ["the page's own address", "https://shop.com/", "https://shop.com/"],
+    ["a relative canonical", "https://shop.com/a", "/a"],
+    ["www and the bare domain", "https://shop.com/", "https://www.shop.com/"],
+    ["the bare domain and www", "https://www.shop.com/", "https://shop.com/"],
+    ["a subdomain of the same domain", "https://blog.shop.com/", "https://shop.com/blog"],
+    ["a preview copy on bolt.host pointing at the owner's own domain (uds.bolt.host)", "https://uds.bolt.host/", "https://www.ultimatesolutions.in/"],
+    ["a preview copy on lovable.app pointing at a custom domain", "https://app.lovable.app/", "https://myapp.com/"],
+    ["the same Lovable address", "https://myapp.lovable.app/", "https://myapp.lovable.app/"],
+  ])("stays quiet for %s", async (_name, url, canonical) => {
+    expect(await runAt(url, canonical)).toEqual([]);
+  });
+
+  it("still reports a missing canonical on its own", async () => {
+    const findings = await run("", "<h1>Hi</h1>");
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe("low");
+  });
+});

@@ -13,12 +13,13 @@ Not planted here: SEC-004 (localhost has no TLS, covered by unit tests in M4), S
 | SEO-002 | No Open Graph or Twitter card tags. | `site/index.html` |
 | SEO-003 | `robots.txt` and `sitemap.xml` do not exist (404). | `/robots.txt`, `/sitemap.xml` |
 | SEO-004 | `<meta name="robots" content="noindex, nofollow">`. | `site/index.html` |
-| SEO-005 | No `h1` element (the headings are `h2`) and no canonical link. | `site/index.html` |
+| SEO-005 | No `h1` element (the headings are `h2`), and a canonical link that points to the template address `https://www.yourwebsite.com/` instead of the site. (A page cannot both lack a canonical and have a wrong one, so the "no canonical link" case is covered by unit tests.) | `site/index.html` |
+| SEO-006 | Default platform metadata: `twitter:site` is still `@Lovable`. The title, description and preview image defaults are not planted here because that would remove the SEO-001 and SEO-002 plants; unit tests cover them. | `site/index.html` |
 | A11Y-001 | Image without `alt`, low-contrast text, input without a label. | `site/index.html`, `site/style.css` (`.muted`) |
 | PERF-001 | About 1.5 MB script loaded without `defer` or `async`, and an oversized image. | `/big.js` (`site/big.js`), `/hero.svg` (`site/hero.svg`) |
 | HYG-001 | No privacy policy link. | `site/index.html` |
 | HYG-002 | No terms link. | `site/index.html` |
-| HYG-003 | "Lorem ipsum", "Your Company", "John Doe", `test@example.com`. | `site/index.html` |
+| HYG-003 | "Lorem ipsum", "Your Company" as the whole text of a heading, "John Doe", `test@example.com`, and a placeholder author in the head (`Your Name or Company Name`). | `site/index.html` |
 | HYG-004 | Default framework favicon: `vite.svg` is the real classic Vite logo (MIT, from vitejs/vite), so its SHA-256 matches the known-default list. | `site/index.html`, `site/vite.svg` |
 | HYG-005 | Script calls an undefined object on load, which logs a console error. | `site/app.js` |
 | HYG-006 | Link to an internal page that does not exist. | `site/index.html` (`/missing-page`) |

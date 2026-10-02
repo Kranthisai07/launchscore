@@ -28,8 +28,8 @@ describe("scanAndWrite", () => {
       verdict: "BLOCKED: CRITICAL ISSUE",
       partial: true,
       untestedCategories: ["performance"],
-      findings: 28,
-      checksRun: 17,
+      findings: 30,
+      checksRun: 18,
     });
     expect(summary.cardError).toBeUndefined();
     expect(path.basename(summary.htmlPath)).toBe("launchscore-report.html");

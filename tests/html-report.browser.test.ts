@@ -128,7 +128,7 @@ describe("the bad fixture's report from a real scan", () => {
     expect(sectionOf(html, "fix-first")).toContain("A secret Stripe payment key is visible in your website&#39;s code");
     expect(sectionOf(html, "detected")).toContain("fakeproject.supabase.co");
     expect(sectionOf(html, "not-checked")).toContain("You chose to skip the speed test.");
-    expect(html).toContain("28 things to look at");
+    expect(html).toContain("30 things to look at");
   });
 });
 

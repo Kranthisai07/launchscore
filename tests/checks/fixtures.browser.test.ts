@@ -10,7 +10,7 @@ let goodCtx: PageContext;
 let badCtx: PageContext;
 
 // PERF-001 runs Lighthouse and has its own integration test (tests/lighthouse.browser.test.ts).
-const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "A11Y-001", "HYG-001", "HYG-002", "HYG-003", "HYG-004", "HYG-005", "HYG-006"];
+const IDS = ["SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "SEO-006", "A11Y-001", "HYG-001", "HYG-002", "HYG-003", "HYG-004", "HYG-005", "HYG-006"];
 
 beforeAll(async () => {
   [good, bad] = await Promise.all([startFixtureServer("good"), startFixtureServer("bad")]);
@@ -31,8 +31,8 @@ const detectionsFor = async (id: string, ctx: PageContext): Promise<Detection[]>
 const severities = (findings: Finding[]) => findings.map((f) => f.severity);
 
 describe("registry", () => {
-  it("has the eighteen checks", () => {
-    expect(checks.map((c) => c.id)).toEqual([...IDS.slice(0, 11), "PERF-001", ...IDS.slice(11)]);
+  it("has the nineteen checks", () => {
+    expect(checks.map((c) => c.id)).toEqual([...IDS.slice(0, 12), "PERF-001", ...IDS.slice(12)]);
     expect(checks.every((c) => c.mode === "passive")).toBe(true);
   });
 });
@@ -115,11 +115,18 @@ describe("bad fixture triggers exactly the planted findings", () => {
     expect(findings[0].evidence).toContain("robots meta tag in your page");
   });
 
-  it("SEO-005: no h1 and no canonical, two lows", async () => {
+  it("SEO-005: no h1 (low) and a canonical that points at the template address (medium)", async () => {
     const findings = await findingsFor("SEO-005", badCtx);
-    expect(severities(findings)).toEqual(["low", "low"]);
+    expect(severities(findings)).toEqual(["low", "medium"]);
     expect(findings[0].title).toContain("h1");
     expect(findings[1].title).toContain("canonical");
+    expect(findings[1].evidence).toContain("yourwebsite.com");
+  });
+
+  it("SEO-006: the default @Lovable X account is left, so low", async () => {
+    const findings = await findingsFor("SEO-006", badCtx);
+    expect(severities(findings)).toEqual(["low"]);
+    expect(findings[0].evidence).toBe("Still default: X account \"@Lovable\"");
   });
 
   it("A11Y-001: image without alt and input without a label (high), faint text (medium)", async () => {
@@ -163,11 +170,11 @@ describe("bad fixture triggers exactly the planted findings", () => {
     expect(badCtx.notTested).toEqual([]); // the fixture says 404, so broken links can be judged
   });
 
-  it("HYG-003: lorem ipsum, Your Company, John Doe, example.com email", async () => {
+  it("HYG-003: lorem ipsum, Your Company, John Doe, example.com email, and a placeholder author", async () => {
     const findings = await findingsFor("HYG-003", badCtx);
-    expect(findings).toHaveLength(4);
+    expect(findings).toHaveLength(5);
     const titles = findings.map((f) => f.title).join("\n");
-    for (const expected of ["Lorem ipsum", "Your Company", "John Doe", "email"]) {
+    for (const expected of ["Lorem ipsum", "Your Company", "John Doe", "email", "title or link-preview tags"]) {
       expect(titles).toContain(expected);
     }
     expect(findings.every((f) => f.severity === "medium")).toBe(true);
