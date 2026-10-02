@@ -28,7 +28,7 @@ describe("scanAndWrite", () => {
       verdict: "BLOCKED: CRITICAL ISSUE",
       partial: true,
       untestedCategories: ["performance"],
-      findings: 30,
+      findings: 27,
       checksRun: 18,
     });
     expect(summary.cardError).toBeUndefined();

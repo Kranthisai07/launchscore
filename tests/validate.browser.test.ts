@@ -48,10 +48,10 @@ describe("the harness on the good and bad fixtures", () => {
     }
   });
 
-  it("finds nothing on the good fixture and 30 things on the bad one", () => {
+  it("finds nothing on the good fixture and 27 things on the bad one", () => {
     const [g, b] = run.results;
     expect(g.report!.findings).toHaveLength(0);
-    expect(b.report!.findings).toHaveLength(30);
+    expect(b.report!.findings).toHaveLength(27);
     expect(g.crashes).toEqual([]);
     expect(b.crashes).toEqual([]);
   });
@@ -59,7 +59,7 @@ describe("the harness on the good and bad fixtures", () => {
   it("writes one review row per finding, each with an empty verdict, and lists the clean site", async () => {
     const md = await readFile(run.reviewPath, "utf8");
     const rows = md.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| Site"));
-    expect(rows).toHaveLength(30);
+    expect(rows).toHaveLength(27);
     for (const row of rows) expect(row).toMatch(/\|  \|$/);
     expect(md).toContain(`Scanned with no findings: ${run.results[0].host}`);
     expect(md).toContain("| critical | A secret Stripe payment key is visible in your website's code |");
@@ -70,10 +70,10 @@ describe("the harness on the good and bad fixtures", () => {
     expect(lines.join("\n")).toContain("0 crashes");
     const summary = await readFile(run.summaryPath, "utf8");
     expect(summary).toContain("2 of 2 sites scanned");
-    expect(summary).toContain("30 findings");
+    expect(summary).toContain("27 findings");
     expect(summary).toContain("| SEC-001 | 2 | 1 |");
     expect(summary).toContain("skipped (--no-perf): 2"); // the test-only override, recorded honestly
-    expect(run.summary.byCheck.reduce((n, c) => n + c.findings, 0)).toBe(30);
+    expect(run.summary.byCheck.reduce((n, c) => n + c.findings, 0)).toBe(27);
   });
 
   it("puts no full secret anywhere in the output", async () => {
@@ -93,7 +93,7 @@ describe("the harness on the good and bad fixtures", () => {
   it("can be marked up and tallied: every row marked TP gives 100% precision", async () => {
     const md = (await readFile(run.reviewPath, "utf8")).replace(/\|  \|$/gm, "| TP |");
     const t = tally(md);
-    expect(t.overall).toMatchObject({ TP: 30, FP: 0, unsure: 0, unmarked: 0, precision: 1 });
+    expect(t.overall).toMatchObject({ TP: 27, FP: 0, unsure: 0, unmarked: 0, precision: 1 });
     expect(t.perCheck.find((c) => c.checkId === "SEC-001")).toMatchObject({ TP: 2 });
   });
 });

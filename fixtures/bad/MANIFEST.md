@@ -8,7 +8,7 @@ Not planted here: SEC-004 (localhost has no TLS, covered by unit tests in M4), S
 |---|---|---|
 | SEC-001 | Fake `sk_live_…` Stripe key and a Supabase `service_role` JWT. The `pk_test_` key and anon JWT beside them are decoys that must not be flagged. | `site/app.js` (`/app.js`) |
 | SEC-002 | Source map served and referenced from the bundle. | `site/app.js.map`, `sourceMappingURL` in `site/app.js` |
-| SEC-003 | No security headers at all (good sends all five). | `headers.ts` |
+| SEC-003 | No security headers at all (good sends all five): one low finding listing the four that apply on http (HSTS is skipped on http). | `headers.ts` |
 | SEO-001 | No `<title>` and no meta description. | `site/index.html` |
 | SEO-002 | No Open Graph or Twitter card tags. | `site/index.html` |
 | SEO-003 | `robots.txt` and `sitemap.xml` do not exist (404). | `/robots.txt`, `/sitemap.xml` |

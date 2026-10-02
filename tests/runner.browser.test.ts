@@ -64,7 +64,7 @@ afterAll(async () => {
 describe("runScan with the real registry (Lighthouse skipped)", () => {
   const SKIPPED = { checkId: "PERF-001", title: "Performance", reason: "skipped (--no-perf)" };
 
-  it("runs nineteen checks: good is clean, bad has 30 findings and a score", async () => {
+  it("runs nineteen checks: good is clean, bad has 27 findings and a score", async () => {
     expect(registry.map((c) => c.id)).toEqual([
       "SEC-001", "SEC-002", "SEC-003", "SEC-004", "SEC-005", "SEO-001", "SEO-002", "SEO-003", "SEO-004", "SEO-005", "SEO-006",
       "A11Y-001", "PERF-001", "HYG-001", "HYG-002", "HYG-003", "HYG-004", "HYG-005", "HYG-006",
@@ -81,10 +81,10 @@ describe("runScan with the real registry (Lighthouse skipped)", () => {
     const counts: Record<string, number> = {};
     for (const f of onBad.findings) counts[f.checkId] = (counts[f.checkId] ?? 0) + 1;
     expect(counts).toEqual({
-      "SEC-001": 2, "SEC-002": 1, "SEC-003": 4, "SEO-001": 2, "SEO-002": 2, "SEO-003": 2, "SEO-004": 1, "SEO-005": 2, "SEO-006": 1,
+      "SEC-001": 2, "SEC-002": 1, "SEC-003": 1, "SEO-001": 2, "SEO-002": 2, "SEO-003": 2, "SEO-004": 1, "SEO-005": 2, "SEO-006": 1,
       "A11Y-001": 3, "HYG-001": 1, "HYG-002": 1, "HYG-003": 5, "HYG-004": 1, "HYG-005": 1, "HYG-006": 1,
     });
-    expect(onBad.findings).toHaveLength(30);
+    expect(onBad.findings).toHaveLength(27);
     // security 0, seo 0, accessibility 25 (two high, one medium), hygiene 0 (130 points of deductions):
     // (0 + 0 + 25*15 + 0) / 85 = 4.4
     expect(onBad.score).toMatchObject({ score: 4, verdict: "BLOCKED: CRITICAL ISSUE", partial: true });

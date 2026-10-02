@@ -48,7 +48,7 @@ describe("renderCards", () => {
   });
 
   it("the bad fixture's card HTML contains no evidence strings and no secret", () => {
-    expect(badReport.findings.length).toBe(30);
+    expect(badReport.findings.length).toBe(27);
     for (const size of ["landscape", "square"] as const) {
       const html = cardHtml(toCardData(badReport), size);
       for (const f of badReport.findings) expect(html, f.evidence).not.toContain(f.evidence);

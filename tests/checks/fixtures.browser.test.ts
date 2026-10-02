@@ -77,10 +77,12 @@ describe("bad fixture triggers exactly the planted findings", () => {
     expect(findings[0].evidence).toBe(`${bad.url}/app.js.map`);
   });
 
-  it("SEC-003: CSP medium plus three low (HSTS is skipped on http)", async () => {
+  it("SEC-003: one low finding listing four missing headers (HSTS is skipped on http)", async () => {
     const findings = await findingsFor("SEC-003", badCtx);
-    expect(severities(findings)).toEqual(["medium", "low", "low", "low"]);
-    expect(findings.some((f) => f.title.includes("Strict-Transport-Security"))).toBe(false);
+    expect(severities(findings)).toEqual(["low"]);
+    expect(findings[0].title).toBe("Your site is missing some browser security settings");
+    expect(findings[0].evidence).toContain("Content-Security-Policy, X-Content-Type-Options, Referrer-Policy, frame protection (X-Frame-Options)");
+    expect(findings[0].evidence).not.toContain("Strict-Transport-Security");
   });
 
   it("SEC-004: nothing on localhost (covered by unit tests)", async () => {
