@@ -14,3 +14,8 @@ Newest first. Each entry: what changed, why this approach, why not the alternati
 - What: both are skipped when the final host's TLD is in `src/data/hsts-preloaded-tlds.ts`.
 - Why: browsers upgrade http:// to https:// for those TLDs by themselves, so the missing header or redirect cannot affect a visitor.
 - The list is not hand-written: it is every dotless entry (51 of 94,778) in Chromium's `transport_security_state_static.json` at commit d5e6fd51b430fec89732a3976e666011ecffa0a2 (2026-09-11), all `public-suffix`, `force-https`, `include_subdomains: true`. `.com` is not on it.
+
+## 2026-10-01: pnpm validate never overwrites a review.md that holds verdicts
+
+- What: before writing, `runValidation` reads `validation/review.md`. If any row has something in its Verdict cell (TP, FP, unsure or any other text), or a table line cannot be read as a row, the file is left byte-for-byte untouched and the new table goes to `review-<timestamp>.md` (and `-2`, `-3` if that name exists). The CLI says so. An unmarked or missing review.md is regenerated as before.
+- Why: an earlier run already replaced a table the user had started marking. Unreadable files count as marked because refusing to overwrite is the safe failure. `summary.md` is still rewritten each run: it holds no human input.

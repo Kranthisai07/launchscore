@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -401,6 +401,67 @@ describe("runValidation (with a fake scanner)", () => {
     expect(await readdir(dir)).toEqual(["validation"]);
     expect(await readFile(run.reviewPath, "utf8")).toContain("| a.example | HYG-002 | low | T | ev |  |");
     expect(await readFile(run.summaryPath, "utf8")).toContain("# launchscore validation summary");
+  });
+
+  describe("an existing review.md", () => {
+    const findings = () => reportWith([finding("T", "low", "ev", { checkId: "HYG-002" })]);
+    const row = (verdict: string) => `| a.example | HYG-002 | low | T | ev | ${verdict} |`;
+
+    async function runOver(existing: string | undefined) {
+      const dir = await tmp();
+      const out = path.join(dir, "validation");
+      const review = path.join(out, "review.md");
+      if (existing !== undefined) {
+        await mkdir(out, { recursive: true });
+        await writeFile(review, existing, "utf8");
+      }
+      const { deps, urls } = setup(["https://a.example/"], findings);
+      const run = await runValidation({ urls, outDir: out, deps });
+      return { run, out, review };
+    }
+
+    it("is replaced when it has no verdicts (nothing to lose)", async () => {
+      const { run, review } = await runOver(`# old\n\n| Site | Check | Severity | Title | Evidence | Verdict |\n|---|---|---|---|---|---|\n${row("")}\n`);
+      expect(run.reviewPath).toBe(review);
+      expect(run.keptReview).toBeUndefined();
+      expect(await readFile(review, "utf8")).not.toContain("# old");
+    });
+
+    it("is created normally when there is none", async () => {
+      const { run, review } = await runOver(undefined);
+      expect(run.reviewPath).toBe(review);
+      expect(run.keptReview).toBeUndefined();
+    });
+
+    it.each(["TP", "FP", "unsure", "maybe later"])("is never overwritten when a row says %j: the new table goes to review-<timestamp>.md", async (verdict) => {
+      const marked = `# my review\n\n| Site | Check | Severity | Title | Evidence | Verdict |\n|---|---|---|---|---|---|\n${row("")}\n${row(verdict)}\n`;
+      const { run, out, review } = await runOver(marked);
+      expect(await readFile(review, "utf8")).toBe(marked); // byte for byte
+      expect(run.keptReview).toBe(review);
+      expect(path.dirname(run.reviewPath)).toBe(out);
+      expect(path.basename(run.reviewPath)).toMatch(/^review-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.md$/);
+      expect(await readFile(run.reviewPath, "utf8")).toContain("| a.example | HYG-002 | low | T | ev |  |");
+      expect(await readdir(out)).toEqual(expect.arrayContaining(["review.md", path.basename(run.reviewPath), "summary.md"]));
+    });
+
+    it("keeps a file with a table line it cannot read as a row, rather than risk losing a verdict", async () => {
+      const { run, review } = await runOver("I started reviewing but changed the layout\n| Site | Check | Severity | Title | Evidence | Verdict |\n|---|---|---|---|---|---|\n| a.example | HYG-002 | FP |\n");
+      expect(run.keptReview).toBe(review);
+      expect(run.reviewPath).not.toBe(review);
+    });
+
+    it("does not overwrite an earlier timestamped review either", async () => {
+      const dir = await tmp();
+      const out = path.join(dir, "validation");
+      await mkdir(out, { recursive: true });
+      await writeFile(path.join(out, "review.md"), `| Site | Check | Severity | Title | Evidence | Verdict |\n|---|---|---|---|---|---|\n${row("TP")}\n`, "utf8");
+      const { deps, urls } = setup(["https://a.example/"], findings);
+      const first = await runValidation({ urls, outDir: out, deps });
+      const second = await runValidation({ urls, outDir: out, deps });
+      expect(second.reviewPath).not.toBe(first.reviewPath);
+      expect(existsSync(first.reviewPath)).toBe(true);
+      expect(existsSync(second.reviewPath)).toBe(true);
+    });
   });
 
   it("refuses to write anything when the output folder is not gitignored", async () => {

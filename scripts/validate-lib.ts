@@ -1,6 +1,7 @@
 // Real-site validation harness: scan a list of sites one by one, collect every finding into a review
 // table to mark up (TP / FP / unsure), and summarise the run. Plain functions so it is easy to test.
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ReportSchema, type Report } from "../src/report/json.js";
@@ -302,8 +303,9 @@ export interface ValidationOptions {
 export interface ValidationRun {
   results: SiteResult[];
   summary: Summary;
-  reviewPath: string;
+  reviewPath: string; // where the new table was written
   summaryPath: string;
+  keptReview?: string; // set when an existing review.md held verdicts and was left untouched
 }
 
 export async function runValidation(options: ValidationOptions): Promise<ValidationRun> {
@@ -352,11 +354,33 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
 
   const summary = summarize(results, (deps.now() - started) / 1000);
   const generatedAt = new Date().toISOString();
-  const reviewPath = path.join(outDir, "review.md");
+  const standardReview = path.join(outDir, "review.md");
+  const keptReview = (await hasVerdicts(standardReview)) ? standardReview : undefined;
+  // Your marked-up verdicts are never overwritten: the new table goes to a file of its own.
+  let reviewPath = standardReview;
+  if (keptReview) {
+    const stamp = generatedAt.replace(/[:.]/g, "-");
+    reviewPath = path.join(outDir, `review-${stamp}.md`);
+    for (let n = 2; existsSync(reviewPath); n++) reviewPath = path.join(outDir, `review-${stamp}-${n}.md`); // never overwrite an earlier one either
+  }
   const summaryPath = path.join(outDir, "summary.md");
   await writeFile(reviewPath, reviewMarkdown(results, generatedAt), "utf8");
   await writeFile(summaryPath, summaryMarkdown(results, summary, generatedAt), "utf8");
-  return { results, summary, reviewPath, summaryPath };
+  return { results, summary, reviewPath, summaryPath, keptReview };
+}
+
+// True when the file exists and any row has something in its Verdict cell. A file that cannot be read for any
+// reason other than not existing counts as marked: refusing to overwrite is the safe answer.
+async function hasVerdicts(file: string): Promise<boolean> {
+  let text: string;
+  try {
+    text = await readFile(file, "utf8");
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code !== "ENOENT";
+  }
+  const { rows, malformed } = parseReview(text);
+  // A table line we cannot read as a row might hold a verdict in a layout we do not understand: keep it too.
+  return malformed.length > 0 || rows.some((row) => row.verdict !== "unmarked");
 }
 
 // ---------------------------------------------------------------------------------------------

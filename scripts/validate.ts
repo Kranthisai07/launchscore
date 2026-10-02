@@ -46,9 +46,14 @@ async function main(): Promise<number> {
     const run = await runValidation({ urls, outDir, guardPaths: [file] });
     for (const line of summaryText(run.summary)) console.log(line);
     console.log("");
-    console.log(`Review table: ${path.resolve(run.reviewPath)}`);
+    if (run.keptReview) {
+      console.log(`Your marked-up ${path.resolve(run.keptReview)} has verdicts, so it was NOT overwritten.`);
+      console.log(`The new table was written to a separate file: ${path.resolve(run.reviewPath)}`);
+    } else {
+      console.log(`Review table: ${path.resolve(run.reviewPath)}`);
+    }
     console.log(`Summary:      ${path.resolve(run.summaryPath)}`);
-    console.log("Mark each row TP, FP or unsure, then run: pnpm validate:tally");
+    console.log(`Mark each row TP, FP or unsure, then run: pnpm validate:tally${run.keptReview ? ` ${path.relative(process.cwd(), run.reviewPath)}` : ""}`);
     return 0;
   } catch (err) {
     if (err instanceof NotIgnoredError) {
