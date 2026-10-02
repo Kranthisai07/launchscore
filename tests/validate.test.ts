@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import {
   crashesOf,
+  disallowsAllAutomated,
+  SKIP_ROBOTS,
   ensureIgnored,
   escapeCell,
   NotIgnoredError,
@@ -309,7 +311,7 @@ describe("the gitignore guard", () => {
 
 describe("runValidation (with a fake scanner)", () => {
   const fakeReports: Record<string, Report> = {};
-  function setup(urls: string[], behaviour: (url: string) => Report | Error) {
+  function setup(urls: string[], behaviour: (url: string) => Report | Error, robots: Record<string, string> = {}) {
     const calls: { url: string; outDir: string; options: ScanOptions }[] = [];
     const sleeps: number[] = [];
     const order: string[] = [];
@@ -331,6 +333,10 @@ describe("runValidation (with a fake scanner)", () => {
       now: () => clock,
       log: () => undefined,
       isIgnored: async () => true,
+      fetchRobots: async (url) => {
+        order.push(`robots ${url}`);
+        return robots[new URL(url).host];
+      },
     };
     return { calls, sleeps, order, deps, urls };
   }
@@ -340,7 +346,7 @@ describe("runValidation (with a fake scanner)", () => {
     const { calls, sleeps, order, deps, urls } = setup(["https://a.example/", "https://b.example/", "https://c.example/"], () => reportWith([]));
     await runValidation({ urls, outDir: dir, deps });
     expect(calls.map((c) => c.url)).toEqual(urls);
-    expect(order).toEqual(urls.flatMap((u) => [`start ${u}`, `end ${u}`]));
+    expect(order).toEqual(urls.flatMap((u) => [`robots ${u}`, `start ${u}`, `end ${u}`]));
     expect(sleeps).toEqual([2000, 2000]);
   });
 
@@ -401,6 +407,45 @@ describe("runValidation (with a fake scanner)", () => {
     expect(await readdir(dir)).toEqual(["validation"]);
     expect(await readFile(run.reviewPath, "utf8")).toContain("| a.example | HYG-002 | low | T | ev |  |");
     expect(await readFile(run.summaryPath, "utf8")).toContain("# launchscore validation summary");
+  });
+
+  describe("robots.txt", () => {
+    const run = async (robots: Record<string, string>) => {
+      const dir = await tmp();
+      const logs: string[] = [];
+      const { calls, order, deps, urls } = setup(
+        ["https://closed.example/", "https://open.example/"],
+        () => reportWith([finding("T", "low", "ev", { checkId: "HYG-002" })]),
+        robots,
+      );
+      const result = await runValidation({ urls, outDir: dir, deps: { ...deps, log: (l) => logs.push(l) } });
+      return { result, logs, calls, order, dir };
+    };
+
+    it("skips a site that disallows everything: it is not scanned, and the log says why", async () => {
+      const { result, logs, calls, order } = await run({ "closed.example": "User-agent: *\nDisallow: /\n" });
+      expect(calls.map((c) => c.url)).toEqual(["https://open.example/"]);
+      expect(order).toEqual(["robots https://closed.example/", "robots https://open.example/", "start https://open.example/", "end https://open.example/"]);
+      expect(logs[0]).toBe("[1/2] closed.example  skipped: site disallows automated access");
+      expect(logs[1]).toMatch(/^\[2\/2\] open\.example /);
+      expect(result.results[0]).toMatchObject({ host: "closed.example", skipped: SKIP_ROBOTS, report: undefined, error: undefined });
+      expect(result.summary).toMatchObject({ sites: 2, scanned: 1 });
+      expect(result.summary.skipped.map((s) => s.host)).toEqual(["closed.example"]);
+      expect(result.summary.failed).toEqual([]);
+    });
+
+    it("lists the skipped site in review.md and summary.md, with no review rows for it", async () => {
+      const { result } = await run({ "closed.example": "User-agent: *\nDisallow: /" });
+      const review = await readFile(result.reviewPath, "utf8");
+      expect(review).toContain("Skipped because the site disallows automated access (robots.txt): closed.example");
+      expect(review).not.toContain("| closed.example |");
+      expect(await readFile(result.summaryPath, "utf8")).toContain("- closed.example");
+    });
+
+    it("scans everything when there is no robots.txt or it only blocks some paths", async () => {
+      const { calls } = await run({ "closed.example": "User-agent: *\nDisallow: /admin\n" });
+      expect(calls.map((c) => c.url)).toEqual(["https://closed.example/", "https://open.example/"]);
+    });
   });
 
   describe("an existing review.md", () => {
@@ -478,6 +523,36 @@ describe("runValidation (with a fake scanner)", () => {
     const isIgnored = async (file: string) => !file.endsWith("sites.txt");
     await expect(runValidation({ urls, outDir: path.join(dir, "out"), guardPaths: ["sites.txt"], deps: { ...deps, isIgnored } })).rejects.toThrow(/sites\.txt/);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("disallowsAllAutomated", () => {
+  it.each([
+    ["User-agent: *\nDisallow: /"],
+    ["User-agent: *\nDisallow: /*"],
+    ["user-agent: *\r\ndisallow: /\r\n"],
+    ["# private site\nUser-agent: *   # everyone\nDisallow: /   # all of it\n"],
+    ["User-agent: googlebot\nDisallow: /private\n\nUser-agent: *\nDisallow: /\n"],
+    ["User-agent: bingbot\nUser-agent: *\nDisallow: /\n"],
+    ["User-agent: *\nDisallow: /admin\nDisallow: /\n"],
+  ])("is true for %j", (robots) => {
+    expect(disallowsAllAutomated(robots)).toBe(true);
+  });
+
+  it.each([
+    [undefined],
+    [""],
+    ["User-agent: *\nDisallow:\n"],
+    ["User-agent: *\nDisallow: /admin\n"],
+    ["User-agent: *\nDisallow: /private/\n"],
+    ["User-agent: *\nAllow: /\nDisallow: /\n"],
+    ["User-agent: GPTBot\nDisallow: /\n"],
+    ["User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nDisallow: /admin\n"],
+    ["User-agent: *\nCrawl-delay: 10\n"],
+    ["Disallow: /\n"],
+    ["<!doctype html><html><body>Not a robots file Disallow: /</body></html>"],
+  ])("is false for %j", (robots) => {
+    expect(disallowsAllAutomated(robots)).toBe(false);
   });
 });
 

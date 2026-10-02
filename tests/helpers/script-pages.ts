@@ -43,5 +43,16 @@ export function scriptRoutes(): Record<string, ExtraRoute> {
   };
   routes["/target.js"] = script('window.__target="reached";');
 
+  // a page that renders, but holds one image open forever, so the "load" event never fires
+  routes["/never-loads"] = (_req, res) => {
+    res
+      .writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      .end('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Slow page</title></head><body><h1>Still here</h1><img src="/hang.png" alt="never arrives"></body></html>');
+  };
+  routes["/hang.png"] = (_req, res) => {
+    res.writeHead(200, { "Content-Type": "image/png", "Content-Length": "100000" });
+    res.write(Buffer.alloc(10)); // a few bytes, then nothing, and the response is never ended
+  };
+
   return routes;
 }

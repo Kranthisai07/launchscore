@@ -46,6 +46,9 @@ export interface ContextOptions {
   maxScriptBytes?: number; // per file
   maxTotalScriptBytes?: number; // all scripts together
   maxScripts?: number; // number of files
+  navigationTimeoutMs?: number; // for the HTML to arrive and be parsed
+  loadTimeoutMs?: number; // how long to wait for the load event after that, then carry on
+  idleTimeoutMs?: number; // how long to wait for the network to go quiet after that, then carry on
 }
 
 // Scripts are read until the first of these limits is reached. The wording of the reasons is shown to the
@@ -60,6 +63,7 @@ export const SKIP_REASON = {
   unreadable: "unreadable",
 } as const;
 const NAVIGATION_TIMEOUT_MS = 30_000;
+const LOAD_TIMEOUT_MS = 15_000;
 const IDLE_TIMEOUT_MS = 5_000;
 const AXE_TIMEOUT_MS = 30_000;
 
@@ -67,6 +71,9 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
   const maxScriptBytes = options.maxScriptBytes ?? MAX_SCRIPT_BYTES;
   const maxTotalScriptBytes = options.maxTotalScriptBytes ?? MAX_TOTAL_SCRIPT_BYTES;
   const maxScripts = options.maxScripts ?? MAX_SCRIPTS;
+  const navigationTimeoutMs = options.navigationTimeoutMs ?? NAVIGATION_TIMEOUT_MS;
+  const loadTimeoutMs = options.loadTimeoutMs ?? LOAD_TIMEOUT_MS;
+  const idleTimeoutMs = options.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
 
   const browser = await chromium.launch();
   try {
@@ -89,16 +96,19 @@ export async function buildContext(url: string, options: ContextOptions = {}): P
       if (res.request().resourceType() === "script") scriptResponses.push(res);
     });
 
+    // The page counts as loaded once its HTML is parsed. A page that renders but never fires "load" (a resource
+    // that hangs, a connection held open) must be scanned, not failed: waiting for "load" and for the network
+    // to go idle are both best effort.
     let main: Response | null;
     try {
-      main = await page.goto(url, { waitUntil: "load", timeout: NAVIGATION_TIMEOUT_MS });
+      main = await page.goto(url, { waitUntil: "domcontentloaded", timeout: navigationTimeoutMs });
     } catch (err) {
       throw new Error(`Could not load ${url}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
     }
     if (main === null) throw new Error(`Could not load ${url}: no response`);
 
-    // A page that never goes idle must not fail the scan.
-    await page.waitForLoadState("networkidle", { timeout: IDLE_TIMEOUT_MS }).catch(() => undefined);
+    await page.waitForLoadState("load", { timeout: loadTimeoutMs }).catch(() => undefined);
+    await page.waitForLoadState("networkidle", { timeout: idleTimeoutMs }).catch(() => undefined);
 
     const scripts: PageContext["scripts"] = [];
     const skippedScripts: PageContext["skippedScripts"] = [];

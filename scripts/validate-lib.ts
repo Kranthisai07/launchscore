@@ -63,8 +63,11 @@ export interface SiteResult {
   seconds: number;
   report?: Report;
   error?: string; // the scan itself failed
+  skipped?: string; // not scanned on purpose (the site asks not to be)
   crashes: Crash[];
 }
+
+export const SKIP_ROBOTS = "skipped: site disallows automated access";
 
 const CRASH_PREFIX = "check failed:";
 
@@ -107,6 +110,7 @@ export function reviewMarkdown(results: SiteResult[], generatedAt: string): stri
   }
   const clean = results.filter((s) => s.report && s.report.findings.length === 0).map((s) => s.host);
   const failed = results.filter((s) => s.error).map((s) => `${s.host} (${s.error})`);
+  const skipped = results.filter((s) => s.skipped).map((s) => s.host);
 
   return [
     "# launchscore validation review",
@@ -121,6 +125,8 @@ export function reviewMarkdown(results: SiteResult[], generatedAt: string): stri
     "",
     `Could not be scanned: ${failed.length ? failed.map(escapeCell).join("; ") : "none"}`,
     "",
+    `Skipped because the site disallows automated access (robots.txt): ${skipped.length ? skipped.map(escapeCell).join(", ") : "none"}`,
+    "",
   ].join("\n");
 }
 
@@ -131,6 +137,7 @@ export interface Summary {
   sites: number;
   scanned: number;
   failed: SiteResult[];
+  skipped: SiteResult[];
   findingsTotal: number;
   byCheck: { checkId: string; findings: number; sites: number }[];
   bySeverity: Record<string, number>;
@@ -168,6 +175,7 @@ export function summarize(results: SiteResult[], totalSeconds: number): Summary 
     sites: results.length,
     scanned: results.filter((s) => s.report).length,
     failed: results.filter((s) => s.error),
+    skipped: results.filter((s) => s.skipped),
     findingsTotal,
     byCheck: [...byCheck.entries()]
       .map(([checkId, v]) => ({ checkId, findings: v.findings, sites: v.sites.size }))
@@ -184,6 +192,7 @@ const secs = (n: number): string => `${n.toFixed(1)}s`;
 
 export function siteLine(site: SiteResult, index: number, total: number): string {
   const head = `[${index}/${total}] ${site.host}`;
+  if (site.skipped) return `${head}  ${site.skipped}`;
   if (!site.report) return `${head}  ${secs(site.seconds)}  COULD NOT BE SCANNED: ${site.error}`;
   const r = site.report;
   const score = r.score === null ? "not scored" : `score ${r.score} ${r.verdict}`;
@@ -201,7 +210,9 @@ export function summaryMarkdown(results: SiteResult[], summary: Summary, generat
     "| Site | Time | Score | Verdict | Findings | Crashed checks | Not tested |",
     "|---|---|---|---|---|---|---|",
     ...results.map((s) =>
-      s.report
+      s.skipped
+        ? `| ${escapeCell(s.host)} | ${secs(s.seconds)} | n/a | ${escapeCell(s.skipped)} | 0 | 0 | 0 |`
+        : s.report
         ? `| ${escapeCell(s.host)} | ${secs(s.seconds)} | ${s.report.score ?? "n/a"} | ${escapeCell(s.report.verdict)} | ${s.report.findings.length} | ${s.crashes.length} | ${s.report.notTested.length} |`
         : `| ${escapeCell(s.host)} | ${secs(s.seconds)} | n/a | could not be scanned: ${escapeCell(s.error ?? "")} | 0 | 0 | 0 |`,
     ),
@@ -229,6 +240,10 @@ export function summaryMarkdown(results: SiteResult[], summary: Summary, generat
     "## Sites that could not be scanned",
     "",
     ...(summary.failed.length ? summary.failed.map((s) => `- ${escapeCell(s.host)}: ${escapeCell(s.error ?? "")}`) : ["None."]),
+    "",
+    "## Sites skipped (robots.txt disallows automated access)",
+    "",
+    ...(summary.skipped.length ? summary.skipped.map((s) => `- ${escapeCell(s.host)}`) : ["None."]),
     "",
   ];
   return lines.join("\n");
@@ -271,6 +286,52 @@ export async function ensureIgnored(files: string[], isIgnored: IsIgnored, log: 
 }
 
 // ---------------------------------------------------------------------------------------------
+// robots.txt
+
+// True when the group for "User-agent: *" blocks the whole site (Disallow: / or /*) and does not allow it back
+// (Allow: /). Only that exact case: paths like /admin are fine, and a missing or unreadable file means go ahead.
+export function disallowsAllAutomated(robotsTxt: string | undefined): boolean {
+  if (!robotsTxt) return false;
+  let agents: string[] = [];
+  let inRules = false; // true once the current group has had a rule line
+  let blocked = false;
+  let allowed = false;
+  for (const raw of robotsTxt.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, "").trim();
+    const match = /^([a-z-]+)\s*:\s*(.*)$/i.exec(line);
+    if (!match) continue;
+    const field = match[1].toLowerCase();
+    const value = match[2].trim();
+    if (field === "user-agent") {
+      if (inRules) {
+        agents = [];
+        inRules = false;
+      }
+      agents.push(value.toLowerCase());
+    } else if (field === "disallow" || field === "allow") {
+      inRules = true;
+      if (!agents.includes("*")) continue;
+      if (field === "disallow" && (value === "/" || value === "/*")) blocked = true;
+      if (field === "allow" && (value === "/" || value === "/*")) allowed = true;
+    }
+  }
+  return blocked && !allowed;
+}
+
+const ROBOTS_TIMEOUT_MS = 10_000;
+const ROBOTS_MAX_CHARS = 500_000;
+
+async function fetchRobotsTxt(siteUrl: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(new URL("/robots.txt", siteUrl), { signal: AbortSignal.timeout(ROBOTS_TIMEOUT_MS) });
+    if (res.status !== 200) return undefined;
+    return (await res.text()).slice(0, ROBOTS_MAX_CHARS);
+  } catch {
+    return undefined;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // The run
 
 export interface ValidationDeps {
@@ -280,6 +341,8 @@ export interface ValidationDeps {
   now: () => number; // milliseconds
   log: (line: string) => void;
   isIgnored: IsIgnored;
+  // The site's robots.txt text, or undefined when there is none (or it could not be fetched).
+  fetchRobots: (url: string) => Promise<string | undefined>;
 }
 
 export const defaultDeps: ValidationDeps = {
@@ -289,6 +352,7 @@ export const defaultDeps: ValidationDeps = {
   now: () => performance.now(),
   log: (line) => console.log(line),
   isIgnored: gitIsIgnored,
+  fetchRobots: fetchRobotsTxt,
 };
 
 export interface ValidationOptions {
@@ -325,16 +389,22 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
     const t0 = deps.now();
     let report: Report | undefined;
     let error: string | undefined;
-    try {
-      // Passive checks only, whatever the address: active checks are never verified here.
-      const summary = await deps.scan(url, path.join(outDir, dir), {
-        ...options.scanOptions,
-        verify: async () => false,
-        onStatus: () => undefined,
-      });
-      report = await deps.readReport(summary.reportPath);
-    } catch (err) {
-      error = (err instanceof Error ? err.message : String(err)).split("\n")[0];
+    let skipped: string | undefined;
+    // A site that asks crawlers to stay away is not scanned (this is the harness only; the CLI is run by the owner).
+    if (disallowsAllAutomated(await deps.fetchRobots(url))) {
+      skipped = SKIP_ROBOTS;
+    } else {
+      try {
+        // Passive checks only, whatever the address: active checks are never verified here.
+        const summary = await deps.scan(url, path.join(outDir, dir), {
+          ...options.scanOptions,
+          verify: async () => false,
+          onStatus: () => undefined,
+        });
+        report = await deps.readReport(summary.reportPath);
+      } catch (err) {
+        error = (err instanceof Error ? err.message : String(err)).split("\n")[0];
+      }
     }
     const site: SiteResult = {
       url,
@@ -343,6 +413,7 @@ export async function runValidation(options: ValidationOptions): Promise<Validat
       seconds: (deps.now() - t0) / 1000,
       report,
       error,
+      skipped,
       crashes: report ? crashesOf(report) : [],
     };
     results.push(site);

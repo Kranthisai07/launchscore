@@ -139,6 +139,21 @@ describe("a script address that redirects", () => {
   });
 });
 
+describe("a page that renders but never fires the load event", () => {
+  it("is scanned anyway, after waiting only a bounded time for load and for the network", async () => {
+    const started = Date.now();
+    const ctx = await buildContext(custom.url + "/never-loads", { loadTimeoutMs: 1_000, idleTimeoutMs: 500 });
+    expect(ctx.status).toBe(200);
+    expect(ctx.html).toContain("<h1>Still here</h1>");
+    expect(ctx.rawHtml).toContain("<h1>Still here</h1>");
+    expect(Date.now() - started).toBeLessThan(15_000); // it did not wait out the old 30 s navigation limit
+  });
+
+  it("still fails clearly when the page itself cannot be reached", async () => {
+    await expect(buildContext("http://127.0.0.1:1/", { navigationTimeoutMs: 2_000 })).rejects.toThrow(/Could not load/);
+  });
+});
+
 describe("navigation failures", () => {
   it("throws a plain-English error when the page cannot be reached", async () => {
     await expect(buildContext("http://127.0.0.1:1/")).rejects.toThrow(/Could not load/);

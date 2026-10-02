@@ -222,6 +222,13 @@ describe("script redirects and limits in a scan", () => {
     expect(result.score).toMatchObject({ verdict: "READY TO LAUNCH", partial: false });
   });
 
+  it("a page that never fires the load event is scanned, not failed", async () => {
+    const result = await runScan(good.url + "/never-loads", scripted({ context: { loadTimeoutMs: 1_000, idleTimeoutMs: 500 } }));
+    expect(result.url).toBe(good.url + "/never-loads");
+    expect(result.checksRun).toBeGreaterThan(0);
+    expect(result.notTested).toEqual([]);
+  });
+
   it(`${MANY} small scripts are all scanned, so the scan is complete`, async () => {
     const result = await runScan(good.url + "/many", scripted());
     expect(result.notTested).toEqual([]);
