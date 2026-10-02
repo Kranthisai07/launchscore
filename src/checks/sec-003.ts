@@ -1,3 +1,4 @@
+import { isHstsPreloadedTld } from "../data/hsts-preloaded-tlds.js";
 import type { Check, Finding, Severity } from "../types.js";
 
 interface HeaderRule {
@@ -53,7 +54,9 @@ export const sec003: Check = {
   category: "security",
   mode: "passive",
   async run(ctx) {
-    const rules = new URL(ctx.finalUrl).protocol === "https:" ? [...RULES, HSTS] : RULES;
+    const final = new URL(ctx.finalUrl);
+    // Browsers force https on preloaded top-level domains (.dev, .app, ...) themselves, so the header adds nothing there.
+    const rules = final.protocol === "https:" && !isHstsPreloadedTld(final.hostname) ? [...RULES, HSTS] : RULES;
     return rules
       .filter((rule) => rule.missing(ctx.headers))
       .map(

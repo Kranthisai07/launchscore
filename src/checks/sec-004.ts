@@ -1,3 +1,4 @@
+import { isHstsPreloadedTld } from "../data/hsts-preloaded-tlds.js";
 import type { FetchResult } from "../fetcher.js";
 import type { Check } from "../types.js";
 
@@ -22,6 +23,8 @@ export const sec004: Check = {
   async run(ctx) {
     const final = new URL(ctx.finalUrl);
     if (LOCAL_HOSTS.has(final.hostname)) return [];
+    // Browsers upgrade every http:// address under these top-level domains (.dev, .app, ...) to https themselves.
+    if (isHstsPreloadedTld(final.hostname)) return [];
 
     if (final.protocol === "http:") {
       return [

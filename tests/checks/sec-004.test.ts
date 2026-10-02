@@ -45,6 +45,20 @@ describe("SEC-004: the page itself", () => {
   });
 });
 
+describe("SEC-004: preloaded top-level domains", () => {
+  it.each(["https://solleti.dev/", "https://www.shop.app/"])("skips %s without any request", async (url) => {
+    const fetch = mockFetch(reply(200));
+    expect(await run({ url, fetch })).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("still checks .com", async () => {
+    const fetch = mockFetch(reply(200));
+    expect(await run({ url: "https://shop.com/", fetch })).toHaveLength(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("SEC-004: the http:// version of an https site", () => {
   const base = { url: "https://shop.test/" };
 

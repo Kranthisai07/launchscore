@@ -63,6 +63,19 @@ describe("SEC-003", () => {
     expect(await run(without("strict-transport-security"), "http://shop.test/")).toEqual([]);
   });
 
+  it.each(["https://solleti.dev/", "https://shop.app/"])("skips only the HSTS rule on the preloaded TLD of %s", async (url) => {
+    expect(await run(without("strict-transport-security"), url)).toEqual([]);
+    const findings = await run({}, url);
+    expect(findings).toHaveLength(4); // CSP, nosniff, referrer, framing are still reported
+    expect(findings.some((f) => f.title.includes("Strict-Transport-Security"))).toBe(false);
+  });
+
+  it("still reports missing HSTS on .com", async () => {
+    const findings = await run(without("strict-transport-security"), "https://shop.com/");
+    expect(findings).toHaveLength(1);
+    expect(findings[0].title).toContain("Strict-Transport-Security");
+  });
+
   it("reports one finding per missing header (none sent, https = 5)", async () => {
     const findings = await run({});
     expect(findings.map((f) => f.severity).sort()).toEqual(["low", "low", "low", "low", "medium"]);

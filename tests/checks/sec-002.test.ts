@@ -118,6 +118,86 @@ describe("SEC-002 stays quiet", () => {
   });
 });
 
+// Real shapes (recorded 2026-10, only the file names): library maps that must not be reported.
+const posthogSources = [
+  "../../browser-common/dist/utils/globals.mjs",
+  "../src/utils/globals.ts",
+  "../../browser-common/dist/config.mjs",
+  "../../core/dist/types.mjs",
+  "../../core/dist/utils/string-utils.mjs",
+  ...Array.from({ length: 125 }, (_, i) => `../../core/dist/utils/part-${i}.mjs`),
+];
+const segmentSources = [
+  "webpack://@segment/analytics-next/webpack/runtime/load script",
+  "webpack://@segment/analytics-next/../../node_modules/inherits/inherits_browser.js",
+  "webpack://@segment/analytics-next/./src/core/context/index.ts",
+  "webpack://@segment/analytics-next/./src/lib/fetch.ts",
+];
+const mapOf = (sources: string[]) =>
+  JSON.stringify({ version: 3, sources, sourcesContent: sources.map((s) => `// ${s}`), mappings: "AAAA" });
+
+describe("SEC-002 ignores open-source library maps", () => {
+  it("does not report the PostHog SDK proxied on the site's own domain (1 app-looking file in 131)", async () => {
+    const fetch = routedFetch({ "https://api.supermemory.ai/orange/static/array.js.map": fetched(200, mapOf(posthogSources)) });
+    const scripts = [script("https://api.supermemory.ai/orange/static/array.js", comment("array.js.map"))];
+    expect(await sec002.run(makeContext({ url: "https://supermemory.ai/", scripts, fetch }))).toEqual([]);
+    expect(fetch).toHaveBeenCalledTimes(1); // first-party, so it is looked at, then judged by its sources
+  });
+
+  it("never fetches a map hosted by another company (Segment)", async () => {
+    const mapUrl = "https://cdn.segment.com/analytics.js/v1/KEY/standalone.js.map";
+    const fetch = routedFetch({ [mapUrl]: fetched(200, mapOf(segmentSources)) });
+    const scripts = [script("https://cdn.segment.com/analytics.js/v1/KEY/standalone.js", comment("standalone.js.map"))];
+    const ctx = makeContext({ url: "https://datasentinel.streamlit.app/", scripts, fetch });
+    expect(await sec002.run(ctx)).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(ctx.notTested).toEqual([]);
+  });
+
+  it("ignores a third-party script's inline map", async () => {
+    const data = `data:application/json;base64,${Buffer.from(map()).toString("base64")}`;
+    const scripts = [script("https://widgets.example.net/w.js", comment(data))];
+    expect(await sec002.run(makeContext({ scripts, fetch: routedFetch({}) }))).toEqual([]);
+  });
+
+  it("treats a sibling tenant on a hosting platform as another site", async () => {
+    const fetch = routedFetch({ "https://cdn.lovable.app/a.js.map": fetched(200, map()) });
+    const scripts = [script("https://cdn.lovable.app/a.js", comment("a.js.map"))];
+    expect(await sec002.run(makeContext({ url: "https://myapp.lovable.app/", scripts, fetch }))).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("still checks a CDN on the site's own domain", async () => {
+    const fetch = routedFetch({ "https://cdn.shop.co.uk/a.js.map": fetched(200, map()) });
+    const scripts = [script("https://cdn.shop.co.uk/a.js", comment("a.js.map"))];
+    expect(await sec002.run(makeContext({ url: "https://www.shop.co.uk/", scripts, fetch }))).toHaveLength(1);
+  });
+
+  it.each([
+    ["the site's own src/ files", ["webpack://app/./src/App.tsx", "../src/index.ts"], 1],
+    ["half own code and half node_modules", ["../src/a.ts", "../node_modules/react/index.js"], 1],
+    ["mostly node_modules with one own file (documented trade-off: not reported)", ["../src/a.ts", "../node_modules/a/i.js", "../node_modules/b/i.js"], 0],
+    ["only dist/ build output", ["../../core/dist/a.mjs", "dist/b.js"], 0],
+  ])("judges a first-party map by its sources: %s", async (_name, sources, expected) => {
+    const fetch = routedFetch({ "https://shop.test/a.js.map": fetched(200, mapOf(sources)) });
+    const scripts = [script("https://shop.test/a.js", comment("a.js.map"))];
+    expect(await sec002.run(makeContext({ scripts, fetch }))).toHaveLength(expected);
+  });
+
+  it("judges a map cut at the size cap by the file names that arrived", async () => {
+    const cut = (sources: string[]) => `{"version":3,"sources":${JSON.stringify(sources)},"sourcesContent":["const x = 1;`;
+    const run = (sources: string[]) =>
+      sec002.run(
+        makeContext({
+          scripts: [script("https://shop.test/a.js", comment("a.js.map"))],
+          fetch: routedFetch({ "https://shop.test/a.js.map": fetched(200, cut(sources), {}, true) }),
+        }),
+      );
+    expect(await run(["../node_modules/react/index.js"])).toEqual([]);
+    expect(await run(["../src/a.ts"])).toHaveLength(1);
+  });
+});
+
 describe("SEC-002 limits", () => {
   it("fetches at most 20 maps and requests each URL once", async () => {
     const scripts = Array.from({ length: 30 }, (_, i) =>

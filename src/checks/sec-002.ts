@@ -1,4 +1,5 @@
 import type { PageContext } from "../context.js";
+import { isSameSite } from "../site.js";
 import type { Check, Finding } from "../types.js";
 
 const MAX_MAPS = 20;
@@ -12,14 +13,32 @@ function referencedMap(script: PageContext["scripts"][number]): string | undefin
   return matches.length > 0 ? matches[matches.length - 1][1] : (script.headers?.["sourcemap"] ?? script.headers?.["x-sourcemap"]);
 }
 
-// A map only matters when it ships the original source (sourcesContent).
+// Library code: installed packages, or build output of a package (dist/). Open-source SDKs ship maps like this on
+// purpose, and it is not the site owner's code.
+const isLibrary = (source: string): boolean => /node_modules\//.test(source) || /(^|\/)dist\//.test(source);
+
+// At least half of the sources must look like the site's own code, so one stray file in a library map is not enough.
+const mostlyAppCode = (sources: string[]): boolean =>
+  sources.length > 0 && sources.filter((s) => !isLibrary(s)).length * 2 >= sources.length;
+
+// A map only matters when it ships original source (sourcesContent) and that source is mostly the site's own.
 function hasSource(text: string, truncated: boolean): boolean {
   try {
     const map: unknown = JSON.parse(text);
-    const content = typeof map === "object" && map !== null ? (map as { sourcesContent?: unknown }).sourcesContent : undefined;
-    return Array.isArray(content) && content.some((entry) => typeof entry === "string" && entry.trim() !== "");
+    if (typeof map !== "object" || map === null) return false;
+    const { sources, sourcesContent } = map as { sources?: unknown; sourcesContent?: unknown };
+    if (!Array.isArray(sources) || !Array.isArray(sourcesContent)) return false;
+    const shipped = sources.filter((s, i): s is string => typeof s === "string" && typeof sourcesContent[i] === "string" && sourcesContent[i].trim() !== "");
+    return mostlyAppCode(shipped);
   } catch {
-    return truncated && /"sourcesContent"\s*:\s*\[\s*"/.test(text);
+    // Cut at the size cap: judge by the list of file names if it arrived whole.
+    if (!truncated || !/"sourcesContent"\s*:\s*\[\s*"/.test(text)) return false;
+    try {
+      const sources: unknown = JSON.parse(/"sources"\s*:\s*(\[[^\]]*\])/.exec(text)?.[1] ?? "");
+      return Array.isArray(sources) && mostlyAppCode(sources.filter((s): s is string => typeof s === "string"));
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -34,10 +53,20 @@ export const sec002: Check = {
     const mapUrls: URL[] = [];
     const inline: string[] = [];
     const seen = new Set<string>();
+    const pageHost = new URL(ctx.finalUrl).hostname;
+    const firstParty = (url: string): boolean => {
+      try {
+        return isSameSite(pageHost, new URL(url).hostname);
+      } catch {
+        return false;
+      }
+    };
 
     for (const script of ctx.scripts) {
       const ref = referencedMap(script);
       if (!ref) continue;
+      // Maps of other people's code (analytics, widgets) are not the site owner's to fix, and are never fetched.
+      if (ref.startsWith("data:") && !firstParty(script.url)) continue;
       if (ref.startsWith("data:")) {
         // The map is inside the script itself: no request needed.
         const match = /^data:application\/json[^,]*?(;base64)?,(.*)$/s.exec(ref);
@@ -53,7 +82,7 @@ export const sec002: Check = {
       } catch {
         continue;
       }
-      if ((url.protocol !== "http:" && url.protocol !== "https:") || seen.has(url.href)) continue;
+      if ((url.protocol !== "http:" && url.protocol !== "https:") || seen.has(url.href) || !firstParty(url.href)) continue;
       seen.add(url.href);
       mapUrls.push(url);
     }
