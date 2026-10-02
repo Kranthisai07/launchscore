@@ -41,3 +41,12 @@ Round 2 (22 vibe-coded sites): 221 TP, 4 FP, 1 unsure after review. All 4 false 
 - Why: M10 data showed SEC-003 was 64 of 248 findings and fired on every site, so it buried the findings that matter. Each header is defence in depth, not a hole by itself, so a single low finding says the same thing without dominating the report or the score. A missing Content Security Policy used to be medium; it is now part of the low finding (a deliberate loss of weight for the one header that matters most, accepted because real sites almost never have one and the old severity penalised all of them equally).
 - Rejected: keeping per-header findings with lower severities (still four rows per site), or dropping the check (it is true and cheap advice).
 - M10 is ticked: 30 real sites (Lovable, Bolt, Vercel, personal), 3 false-positive patterns fixed, 3 gaps turned into checks, 2 robustness fixes.
+
+## 2026-10-02: README rewrite with animated SVG hero and terminal demo
+
+- What: new `README.md`, `docs/hero.svg`, `docs/terminal.svg`, `docs/card-example.png`, and `scripts/make-card-example.ts`. `docs/hero.svg` and `docs/terminal.svg` did not exist before (nothing in git history), so both were built from scratch.
+- Why SVG with CSS keyframes: GitHub shows README images in an `<img>`, so scripts and external fonts do not run. Fonts are embedded as base64 from `src/report/fonts.ts` (same as the share card) and `prefers-reduced-motion` shows the final state. Rejected: GIF or video (large, blurry, no reduced-motion), asciinema or JS players (do not run on GitHub).
+- Honesty: the README says plainly that the npm package, Claude Code plugin, `launchscore verify`, and the database tests are not built. The install line is the from-source one, because `npx launchscore` does not work until M16.
+- Numbers: the hero scores 12, 52, 78, 100 come from running `computeScore` over the bad fixture's findings with one group of areas fixed at a time (security, then SEO and accessibility, then hygiene and performance). The terminal output is a real run on the bad fixture. `docs/card-example.png` comes from our own card renderer, with only the address swapped.
+- Corrections to old README text: removed "launch checks for links, favicon and console errors are still to come" (HYG-004 to HYG-006 exist); `npx` usage moved to roadmap.
+- Not changed (code, per the task): the share card footer still prints `npx launchscore`, and `tests/card.browser.test.ts` and `tests/validate.browser.test.ts` still expect 27 findings while the bad fixture now yields 30.
